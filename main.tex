@@ -2,13 +2,19 @@
 \usepackage[utf8]{inputenc}
 
 \title{Columnar data processing for HEP analysis}
-\author{Jim Pivarski\inst{1} \and Someone Else\inst{2}}
+\author{Jim Pivarski\inst{1} \and Jaydeep Nandi\inst{2} \and David Lange\inst{1} \and Peter Elmer\inst{1}}
 \date{October 2018}
 
 \abstract{Wowie.}
 
+%% In the last stages of data analysis, only order-of-magnitude computing speedups translate into increased human productivity, and only if they're not difficult to set up. Producing a plot in a second instead of an hour is life-changing, but not if it takes two hours to write the analysis code. Fortunately, HPC-inspired techniques can result in such large speedups, but unfortunately, they can be difficult to use in a HEP setting.
+
+%% These techniques generally favor operating on columns— arrays representing a single attribute across events, rather than whole events individually— which allows data to stream predictably from disk media to main memory and finally to CPU/GPU/KNL onboard memory (e.g. L* cache) for prefetching and sometimes allows for for vectorization. However, the need to work with variable-length structures in HEP, such as different numbers of particles per event, makes it difficult to apply this technique to HEP problems.
+
+%% We will describe several new software tools to make it easier to compute analysis functions with columnar arrays in HEP: array-at-a-time I/O in ROOT ("BulkIO") and Python/Numpy ("uproot"), compiling object-oriented analysis code into columnar operations ("oamap" for "object-array mapping"), and storage solutions with columnar granularity. We will show performance plots and usage examples.
+
 \begin{document}
-\institute{Princeton University \and Somewhere Else}
+\institute{Princeton University \and National Institute of Technology, Silchar, India}
 
 \maketitle
 
@@ -16,22 +22,27 @@
 
 Hello there.
 
-\begin{description}
-\item[$\bullet$] This
-\item[$\bullet$] Is
-\item[$\bullet$] A
-\item[$\bullet$] List
-\end{description}
+%% \begin{description}
+%% \item[$\bullet$] This
+%% \item[$\bullet$] Is
+%% \item[$\bullet$] A
+%% \item[$\bullet$] List
+%% \end{description}
 
-\begin{acknowledgement}
-NSF
-\end{acknowledgement}
+\section{Acknowledgements}
+
+This work was supported by the National Science Foundation under grants ACI-1450377 and PHY-1624356.
 
 \begin{thebibliography}{8}
-\bibitem{key1}
-Journal Author, Journal \textbf{Volume}, page numbers (year)
-\bibitem{key2}
-Book Author, \textit{Book title} (Publisher, place, year) page numbers
+% Journal Author, Journal \textbf{Volume}, page numbers (year)
+
+\bibitem{uproot} Jim Pivarski et al., ``uproot'' [software], Release 3.2.6, Zenodo, 22 October, 2018. \url{https://zenodo.org/record/1469102}
+
+\bibitem{uproot-methods} Jim Pivarski et al., ``uproot-methods'' [software], Release 0.4.1, Zenodo, 26 October, 2018. \url{https://zenodo.org/record/1472439}
+
+\bibitem{awkward} Jim Pivarski, ``awkward-array'' [software], Release 0.4.1, Zenodo, 26 October, 2018. \url{https://zenodo.org/record/1472437}
+
+
 \end{thebibliography}
 
 \end{document}
