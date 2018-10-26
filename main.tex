@@ -2,6 +2,7 @@
 \usepackage[utf8]{inputenc}
 \usepackage{xcolor}
 \usepackage{minted}
+\usepackage{tabto}
 
 \title{Columnar data processing for HEP analysis}
 \author{Jim Pivarski\inst{1} \and Jaydeep Nandi\inst{2} \and David Lange\inst{1} \and Peter Elmer\inst{1}}
@@ -35,22 +36,30 @@
 
 \maketitle
 
-%% \begin{description}
-%% \item[$\bullet$] This
-%% \item[$\bullet$] Is
-%% \item[$\bullet$] A
-%% \item[$\bullet$] List
-%% \end{description}
-
 \section{Introduction}
 
-blah blah blah
+The field of High Energy Physics (HEP) has always dealt with big data, large enough datasets that finite memory and processing speed cannot be ignored. Traditionally, physicists have relied on compiled languages like Fortran and C++ to analyze large datasets in batch, but this limits interactive exploration. Today, data analysts in other fields, including industry, have developed tools for analyzing large datasets in high-level languages, but these tools treat data as rectangular tables and flat arrays. HEP analysis requires {\it nested} data--- arbitrarily many tracks within jets or variable-sized collections of particle candidates--- which do not fit into rectangular data without padding and truncation.
 
-\section{Examples: solutions to common physics problems}
-
-HEP analysis always dealt with big data, large enough datasets that finite memory and processings speed cannot be ignored. Traditionally Fortran and C++, but this loses interactivity and opportunity to use tools developed by wider data science community. Big data in industry and other sciences use functional and array programming, but HEP problems cannot be performed with flat arrays.
+This paper introduces awkward-array, a library designed to extend the array programming model used by MATLAB, R, Numpy, and Pandas to nested and otherwise ``awkward'' data structures. The library is written in pure Python, depending only on Numpy, for easier integration into the Python data science ecosystem.
 
 \section{Extended array programming}
+
+Array programming is an interface in which user commands apply to whole arrays: each function call applies a single operation on millions of data points. Pioneered by APL in 1963, this programming style appears primarily in analyst-facing data processing languages such as S (1976), MATLAB (1984), S-PLUS (1988), R (1993), and Numpy (2005). Beyond succinct syntax elements, which can be easier to read than their for-loop equivalents, organizing data in columns minimizes memory use and execution times. The resemblance of array programming with Single Instruction Multiple Data (SIMD) programming allows array-centric programs to migrate more easily to vector processors like GPUs.
+
+The basic elements of array programming are
+
+\begin{description}
+\item[\hspace{1 cm}$\bullet$] Multidimensional slices: \tabto{6.5 cm}{\small \mintinline{python}{rgb_pixels[0, 50:100, ::3]}}                
+\item[\hspace{1 cm}$\bullet$] Elementwise operations: \tabto{6.5 cm}{\small \mintinline{python}{all_pz = all_pt * sinh(all_eta)}}            
+\item[\hspace{1 cm}$\bullet$] Broadcasting: \tabto{6.5 cm}{\small \mintinline{python}{all_phi - 2*pi}}                                       
+\item[\hspace{1 cm}$\bullet$] Masking (list compaction): \tabto{6.5 cm}{\small \mintinline{python}{data[trigger & (pt > 40)]}}               
+\item[\hspace{1 cm}$\bullet$] Fancy indexing (gather/scatter): \tabto{6.5 cm}{\small \mintinline{python}{all_eta[argsort(all_pt)]}}          
+\item[\hspace{1 cm}$\bullet$] Row/column commutativity \tabto{6.5 cm}{\small \mintinline{python}{table["column"][7]} (row 7 of column array)}
+\tabto{6.5 cm}{\small \mintinline{python}{table[7]["column"]} (field of row tuple 7)}
+\item[\hspace{1 cm}$\bullet$] Array reduction: \tabto{6.5 cm}{\small \mintinline{python}{array.sum()}} $\to$ scalar
+\end{description}
+
+\section{Examples: solutions to common physics problems}
 
 blah blah blah
 
@@ -226,29 +235,6 @@ This work was supported by the National Science Foundation under grants ACI-1450
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-%% \begin{frame}[fragile]{Array programming}
-%% \vspace{0.2 cm}
-%% \hfill \includegraphics[height=2.75 cm]{apl-timeline.pdf}
-
-%% \vspace{-2.15 cm}
-%% {\bf\large Primarily for data analysis languages}
-
-%% \vspace{0.5 cm}
-%% Express regular operations over rectangular \\ data structures in shorthand.
-
-%% \vspace{0.25 cm}
-%% \begin{itemize}\setlength{\itemsep}{0.15 cm}
-%% \item<2-> Multidimensional slices: \tabto{5.5 cm}{\small \mintinline{python}{rgb_pixels[0, 50:100, ::3]}}
-%% \item<3-> Elementwise operations: \tabto{5.5 cm}{\small \mintinline{python}{all_pz = all_pt * sinh(all_eta)}}
-%% \item<4-> Broadcasting: \tabto{5.5 cm}{\small \mintinline{python}{all_phi - 2*pi}}
-%% \item<5-> Masking (list compaction): \tabto{5.5 cm}{\small \mintinline{python}{data[trigger & (pt > 40)]}}
-%% \item<6-> Fancy indexing (gather/scatter): \tabto{5.5 cm}{\small \mintinline{python}{all_eta[argsort(all_pt)]}}
-%% \item<7-> Row/column commutativity \tabto{5.5 cm}{\small \mintinline{python}{table["column"][7]} (row 7 of column array)}
-
-%% (hides AoS $\leftrightarrow$ SoA): \tabto{5.5 cm}{\small \mintinline{python}{table[7]["column"]} (field of row tuple 7)}
-%% \item<8-> Array reduction: \tabto{5.5 cm}{\small \mintinline{python}{array.sum()}} $\to$ scalar
-%% \end{itemize}
-%% \end{frame}
 
 %% \begin{frame}[fragile]{Extension to variable-sized, nested structures}
 %% \vspace{0.5 cm}
