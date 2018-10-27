@@ -59,82 +59,52 @@ Array programming usually includes the following elements (expressed in Numpy sy
 \item[\hspace{1 cm}$\bullet$] Array reduction: \tabto{5.8 cm}{\small \mintinline{python}{array.sum()}} $\to$ scalar
 \end{description}
 
-\noindent The semantics of each of these are well established for rectangular tables and flat arrays, but they can be extended to arbitrarily nested data structures. The examples below illustrate common cases that are defined in detail later in the text.
+\noindent The semantics of each of these is well established for rectangular tables and flat arrays, but they can be extended to arbitrarily nested data structures. The examples below illustrate common cases that are defined in detail later in the text. In these examples, {\small\mintinline{python}{events["jets"]}}, {\small\mintinline{python}{jetpt}}, etc., are lists of arbitrarily many objects or values.
 
 \begin{description}
 \item[\hspace{1 cm}$\bullet$] Multidimensional slices: \tabto{5.8 cm}{\small \mintinline{python}{events["jets"][:, 0]}} $\to$ first jet per event
-\item[\hspace{1 cm}$\bullet$] Elementwise operations: \tabto{5.8 cm}{\small \mintinline{python}{jetpt * sinh(jeteta)}} $\to$ keep jagged structure
+\item[\hspace{1 cm}$\bullet$] Elementwise operations: \tabto{5.8 cm}{\small \mintinline{python}{jetpt * sinh(jeteta)}} $\to$ keep nested structure
 \item[\hspace{1 cm}$\bullet$] Broadcasting: \tabto{5.8 cm}{\small \mintinline{python}{jetphi - metphi}} $\to$ expand {\small \mintinline{python}{metphi}} from
 \tabto{5.8 cm}one-per-event to one-per-jet before operation
 \item[\hspace{1 cm}$\bullet$] Masking (list compaction): \tabto{5.8 cm}{\small \mintinline{python}{data[trigger]}} $\to$ drop whole events
 \tabto{5.8 cm}{\small \mintinline{python}{data[jetpt > 40]}} $\to$ drop jets from events  
 \item[\hspace{1 cm}$\bullet$] Fancy indexing (gather): \tabto{5.8 cm}{\small \mintinline{python}{a = argmax(jetpt)}} $\to$ {\small \mintinline{python}{[[2], [], [1], [4]]}}
 \tabto{5.8 cm}{\small \mintinline{python}{jeteta[a]}} $\to$ \mbox{\small \mintinline{python}{[[3.6], [], [-1.2], [0.4]]}\hspace{-0.5 cm}}
-\item[\hspace{1 cm}$\bullet$] Row/column commutativity \tabto{5.8 cm}{\small \mintinline{python}{events["jets"]["pt"][7, 1]}} (all the same)
-\tabto{5.8 cm}{\small \mintinline{python}{events["jets"][7]["pt"][1]}} \\
-\tabto{5.8 cm}{\small \mintinline{python}{events[7]["jets"]["pt"][1]}} \\
-\tabto{5.8 cm}{\small \mintinline{python}{events["jets"][7, 1]["pt"]}} \\
-\tabto{5.8 cm}{\small \mintinline{python}{events[7]["jets"][1]["pt"]}}
+\item[\hspace{1 cm}$\bullet$] Row/column commutativity \tabto{5.8 cm}{\small \mintinline{python}{events["jets"]["pt"][7, 1]}} is the same as
+\tabto{5.8 cm}{\small \mintinline{python}{events["jets"][7]["pt"][1]}} and \\
+\tabto{5.8 cm}{\small \mintinline{python}{events["jets"][7, 1]["pt"]}} etc.
 \item[\hspace{1 cm}$\bullet$] Array reduction: \tabto{5.8 cm}{\small \mintinline{python}{jetpt.max()}} $\to$ array of max jet $p_T$ per event
 \end{description}
 
-\section{Examples: solutions to common physics problems}
+\noindent Consider the following extended example, which generates particle candidate combinations and then selects the best one. Procedural code like this (Python syntax):
 
-blah blah blah
-
-{\small
-
-\noindent {\bf Problem 1:} Compute the $\phi$ difference between each jet and its event's MET.
-\begin{minted}{python}
+{\small\begin{minted}{python}
+leptoquarks = []
 for event in dataset:
-    for jet in event.jets:
-        jet.phidiff = jet.phi - event.phi
-\end{minted}
-
-\noindent {\bf Jagged array solution:} 
-\begin{minted}{python}
-# because of extended broadcasting rules
-events["jets"]["phidiff"] = events["jets"]["phi"] - events["MET"]["phi"]
-\end{minted}
-
-\noindent {\bf Problem 2:} Compute mass of all particles from two collections, subjet to a cut.
-\begin{minted}{python}
-for event in dataset:
-    event.leptoquarks = []
+    best = None
     for jet in event.jets:
         for lepton in event.leptons:
             if cut(jet, lepton):
-                event.pairs.append(mass(jet, lepton))
+                leptoquark = jet + lepton        # Lorentz vector + operator
+                if best is None or quality(leptoquark) > quality(best):
+                    best = leptoquark
+    if best is not None:
+        leptoquarks.append(best)
 \end{minted}
-
-\noindent {\bf Jagged array solution:} 
-\begin{minted}{python}
-# jagged cross-join makes (jet, lepton) pairs per event
-pairs = events["jets"].cross(events["leptons"])
-events["leptoquarks"] = mass(pairs[cut(pairs)])
-\end{minted}
-
-\noindent {\bf Problem 3:} Find the ``best'' candidate per event or per subcollection.
-\begin{minted}{python}
-for event in dataset:
-    event.best = []
-    for leptoquark in leptoquarks:
-        if event.best == [] or \
-            quality(leptoquark) > quality(event.best[0]):
-                event.best = [leptoquark]
-\end{minted}
-
-\noindent {\bf Jagged array solution:} 
-\begin{minted}{python}
-# jagged argmax makes empty lists [] or singleton lists [N]
-argbest = quality(events["leptoquarks"]).argmax()
-# jagged fancy indexing transforms [] -> [] and [i] -> [sublist[i]]
-events["best"] = events["leptoquarks"][argbest]
-# remove empty lists and concatenate singletons by dropping offsets
-nonempty_best = events["best"].flatten()
-\end{minted}
-
 }
+
+\noindent can be replaced by the following array code.
+
+{\small\begin{minted}{python}
+pairs = events["jets"].cross(events["leptons"])  # cross-join particles per event
+goodpairs = pairs[cut(pairs["0"], pairs["1"])]   # pairs is a table of "0" and "1"
+candidates = pairs["0"] + pairs["1"]             # Lorentz vector + operator
+best = candidates[quality(candidates).argmax()]  # get best indexes, then best objects
+leptoquarks = best.flatten()                     # reduce structure to flat array
+\end{minted}
+}
+
+HERE
 
 \section{High-level types and array programming interface}
 
