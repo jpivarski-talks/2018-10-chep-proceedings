@@ -49,19 +49,34 @@ Array programming is an interface in which user commands apply to whole arrays: 
 Array programming usually includes the following elements (expressed in Numpy syntax here):
 
 \begin{description}
-\item[\hspace{1 cm}$\bullet$] Multidimensional slices: \tabto{6.5 cm}{\small \mintinline{python}{rgb_pixels[0, 50:100, ::3]}}                
-\item[\hspace{1 cm}$\bullet$] Elementwise operations: \tabto{6.5 cm}{\small \mintinline{python}{all_pz = all_pt * sinh(all_eta)}}            
-\item[\hspace{1 cm}$\bullet$] Broadcasting: \tabto{6.5 cm}{\small \mintinline{python}{all_phi - 2*pi}}                                       
-\item[\hspace{1 cm}$\bullet$] Masking (list compaction): \tabto{6.5 cm}{\small \mintinline{python}{data[trigger & (pt > 40)]}}               
-\item[\hspace{1 cm}$\bullet$] Fancy indexing (gather/scatter): \tabto{6.5 cm}{\small \mintinline{python}{all_eta[argsort(all_pt)]}}          
-\item[\hspace{1 cm}$\bullet$] Row/column commutativity \tabto{6.5 cm}{\small \mintinline{python}{table["column"][7]} (row 7 of column array)}
-\tabto{6.5 cm}{\small \mintinline{python}{table[7]["column"]} (field of row tuple 7)}
-\item[\hspace{1 cm}$\bullet$] Array reduction: \tabto{6.5 cm}{\small \mintinline{python}{array.sum()}} $\to$ scalar
+\item[\hspace{1 cm}$\bullet$] Multidimensional slices: \tabto{5.8 cm}{\small \mintinline{python}{rgb_pixels[0, 50:100, ::3]}}
+\item[\hspace{1 cm}$\bullet$] Elementwise operations: \tabto{5.8 cm}{\small \mintinline{python}{all_pz = all_pt * sinh(all_eta)}}
+\item[\hspace{1 cm}$\bullet$] Broadcasting: \tabto{5.8 cm}{\small \mintinline{python}{all_phi - 2*pi}}
+\item[\hspace{1 cm}$\bullet$] Masking (list compaction): \tabto{5.8 cm}{\small \mintinline{python}{data[trigger & (pt > 40)]}}
+\item[\hspace{1 cm}$\bullet$] Fancy indexing (gather): \tabto{5.8 cm}{\small \mintinline{python}{all_eta[argsort(all_pt)]}}
+\item[\hspace{1 cm}$\bullet$] Row/column commutativity \tabto{5.8 cm}{\small \mintinline{python}{table["column"][7]} (row 7 of column array)}
+\tabto{5.8 cm}{\small \mintinline{python}{table[7]["column"]} (field of row tuple 7)}
+\item[\hspace{1 cm}$\bullet$] Array reduction: \tabto{5.8 cm}{\small \mintinline{python}{array.sum()}} $\to$ scalar
 \end{description}
 
-HERE
+\noindent The semantics of each of these are well established for rectangular tables and flat arrays, but they can be extended to arbitrarily nested data structures. The examples below illustrate common cases that are defined in detail later in this paper.
 
-
+\begin{description}
+\item[\hspace{1 cm}$\bullet$] Multidimensional slices: \tabto{5.8 cm}{\small \mintinline{python}{events["jets"][:, 0]}} $\to$ first jet per event
+\item[\hspace{1 cm}$\bullet$] Elementwise operations: \tabto{5.8 cm}{\small \mintinline{python}{jetpt * sinh(jeteta)}} $\to$ keep jagged structure
+\item[\hspace{1 cm}$\bullet$] Broadcasting: \tabto{5.8 cm}{\small \mintinline{python}{jetphi - metphi}} $\to$ expand {\small \mintinline{python}{metphi}} from
+\tabto{5.8 cm}one-per-event to one-per-jet before operation
+\item[\hspace{1 cm}$\bullet$] Masking (list compaction): \tabto{5.8 cm}{\small \mintinline{python}{data[trigger]}} $\to$ drop whole events
+\tabto{5.8 cm}{\small \mintinline{python}{data[jetpt > 40]}} $\to$ drop jets from events  
+\item[\hspace{1 cm}$\bullet$] Fancy indexing (gather): \tabto{5.8 cm}{\small \mintinline{python}{a = argmax(jetpt)}} $\to$ {\small \mintinline{python}{[[2], [], [1], [4]]}}
+\tabto{5.8 cm}{\small \mintinline{python}{jeteta[a]}} $\to$ \mbox{\small \mintinline{python}{[[3.6], [], [-1.2], [0.4]]}\hspace{-0.5 cm}}
+\item[\hspace{1 cm}$\bullet$] Row/column commutativity \tabto{5.8 cm}{\small \mintinline{python}{events["jets"]["pt"][7, 1]}} (all the same)
+\tabto{5.8 cm}{\small \mintinline{python}{events["jets"][7]["pt"][1]}} \\
+\tabto{5.8 cm}{\small \mintinline{python}{events[7]["jets"]["pt"][1]}} \\
+\tabto{5.8 cm}{\small \mintinline{python}{events["jets"][7, 1]["pt"]}} \\
+\tabto{5.8 cm}{\small \mintinline{python}{events[7]["jets"][1]["pt"]}}
+\item[\hspace{1 cm}$\bullet$] Array reduction: \tabto{5.8 cm}{\small \mintinline{python}{jetpt.max()}} $\to$ array of max jet $p_T$ per event
+\end{description}
 
 \section{Examples: solutions to common physics problems}
 
