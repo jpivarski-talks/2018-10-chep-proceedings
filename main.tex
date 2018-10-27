@@ -42,9 +42,9 @@ The field of High Energy Physics (HEP) has always dealt with big data, large eno
 
 This paper introduces awkward-array, a library designed to extend the array programming model used by MATLAB, R, Numpy, and Pandas to nested and otherwise ``awkward'' data structures. The library is written in pure Python, depending only on Numpy, for easier integration into the Python data science ecosystem.
 
-\section{Extentions to array programming}
+\section{Array programming and its extension to nested data}
 
-Array programming is an interface in which user commands apply to whole arrays: each function call applies a single operation on millions of data points. Pioneered by APL in 1963, this programming style appears primarily in analyst-facing data processing languages such as S (1976), MATLAB (1984), S-PLUS (1988), R (1993), and Numpy (2005). Beyond succinct syntax elements, which can be easier to read than their for-loop equivalents, this organization of data in columns minimizes memory use and execution times. The resemblance of array programming with Single Instruction Multiple Data (SIMD) programming allows array-centric programs to migrate more easily to vector processors like GPUs.
+Array programming is an interface in which individual user commands apply to whole arrays: each function call performs a regular operation on millions of data points. Pioneered by APL in 1963, this programming style appears primarily in analyst-facing data processing languages such as S~(1976), MATLAB~(1984), S-PLUS~(1988), R~(1993), and Numpy~(2005). Beyond its succinct syntax, which can be easier to read than the corresponding for-loops, it encourages simple passes over columnar data that facilitates CPU cache-prefetching and vectorization. In fact, programs written in an array programming style are also well organized for Single Instruction Multiple Data (SIMD) processing, which makes it easier to migrate to GPUs.
 
 Array programming usually includes the following elements (expressed in Numpy syntax here):
 
@@ -59,7 +59,7 @@ Array programming usually includes the following elements (expressed in Numpy sy
 \item[\hspace{1 cm}$\bullet$] Array reduction: \tabto{5.8 cm}{\small \mintinline{python}{array.sum()}} $\to$ scalar
 \end{description}
 
-\noindent The semantics of each of these are well established for rectangular tables and flat arrays, but they can be extended to arbitrarily nested data structures. The examples below illustrate common cases that are defined in detail later in this paper.
+\noindent The semantics of each of these are well established for rectangular tables and flat arrays, but they can be extended to arbitrarily nested data structures. The examples below illustrate common cases that are defined in detail later in the text.
 
 \begin{description}
 \item[\hspace{1 cm}$\bullet$] Multidimensional slices: \tabto{5.8 cm}{\small \mintinline{python}{events["jets"][:, 0]}} $\to$ first jet per event
