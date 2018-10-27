@@ -139,17 +139,56 @@ Primitives, variable-sized lists, and tables of records would be sufficient for 
 
 For cross-references, such as tagging jets with their associated leptons, we allow type trees to be arbitrary graphs. A list may contain elements of a list elsewhere in the graph or its own ancestors. As an example of the latter case,
 
-\[ [0, n) \to T \coloneqq \big( \mbox{\small\tt int}\ |\ [0, \infty) \to T \big) \]
+\[ [0, n) \to T \coloneqq \big( \mbox{\small\tt int}\ \big|\ [0, \infty) \to T \big) \]
 
 \noindent is an array that may contain integers, lists of integers, or any depth of lists of integers.
 
-This set of types is as inclusive as most high-level programming languages, and it can be entirely constructed from columnar arrays.
+This set of types is as inclusive as most high-level programming languages, and it can be constructed entirely from columnar arrays.
 
 \section{Low-level data structures and their uses}
 
-blah blah blah
+The fundamental construct for variable-sized, nested structure is the jagged array. To represent a list of unequal-length sublists with the following logical structure, we store the flattened content in one array and the structure in either an ``offsets'' or a ``parents'' array.
 
-\section{Persistence, ROOT and Arrow compatibility}
+\vspace{\baselineskip}
+Logical structure: \tabto{4 cm}{\ttfamily\textcolor{black}{[\textcolor{red}{[}\textcolor{darkblue}{0, 1, 2}], \textcolor{red}{[}], \textcolor{red}{[}\textcolor{darkblue}{3, 4}], \textcolor{red}{[}\textcolor{darkblue}{5, 6, 7, 8}], \textcolor{red}{[}]\ \ \textcolor{red}{]}}}
+
+\vspace{0.05 cm}
+Content:           \tabto{4 cm}{\ttfamily\verb|[ |\textcolor{darkblue}{0, 1, 2}\verb|,       |\textcolor{darkblue}{3, 4}\verb|,   |\textcolor{darkblue}{5, 6, 7, 8}\verb|]|}
+
+\vspace{0.05 cm}
+Offsets:           \tabto{4 cm}{\ttfamily\verb|[|\textcolor{red}{0,}\verb|         |\textcolor{red}{3,}\verb|  |\textcolor{red}{3,}\verb|      |\textcolor{red}{5,}\verb|            |\textcolor{red}{10, 10}\verb|]|}
+
+\vspace{0.05 cm}
+Parents:           \tabto{4 cm}{\ttfamily\verb|[ |\textcolor{darkgreen}{0, 0, 0}\verb|        |\textcolor{purple}{2, 2,}\verb|   |\textcolor{darkorange}{3, 3, 3, 3}\verb|]|}
+
+\vspace{\baselineskip}
+The offsets array may be constructed as the content index after every opening bracket (the ``starts'' array) appended by the total length, or it may be constructed as the content index after every closing bracket (the ``stops'' array) prepended by zero. It is useful for descending from outer levels to inner levels of structure.
+
+The parents array has the same length as the contents array; it associates each content element with the index of the subarray that contains it. A parents array is incapable of expressing empty sublists at the end of a list (as in the above example), but it can specify empty lists in a sequence by skipping integers. Offsets are therefore more general than parents, but parents are useful in reducer operations that ascend from inner levels to outer levels of structure. 
+
+The awkward-array library has a {\tt\small JaggedArray} implementation that allows arbitrary contents--- nesting a {\tt\small JaggedArray} within a {\tt\small JaggedArray} constructs $[0, n) \to [0, \infty) \to [0, \infty) \to P$. The {\tt\small JaggedArray.\_\_getitem\_\_} method overrides square brackets in Python to provide slicing, masking, and fancy indexing with all the features described in the previous section. Elementwise operations and broadcasting are implemented in {\tt\small \_\_array\_ufunc\_\_}, which overrides the behavior of all universal functions in Numpy.
+
+Tables of records are implemented as a {\tt\small Table} class that maps column names to arrays. This is like Numpy's ``record arrays,'' except that a Numpy record array must be a contiguous array of structs, while awkward-array's {\tt\small Table} may be non-contiguous or a struct of arrays. {\tt\small JaggedArray} and {\tt\small Table} interact to let integer and string valued indexes commute, which hides the arrays-of-structs/structs-of-arrays distinction.
+
+{\tt\small UnionArray} and {\tt\small MaskedArray} implement polymorphism and optional types. Numpy has a masked array type, but {\tt\small MaskedArray} shares conventions with the rest of awkward-array's suite and additionally has a {\tt\small BitMaskedArray} variant for compatibility with Apache Arrow (next section).
+
+In HEP applications, it is useful to have datasets representing arrays of objects, such as $[0, n) \to \mbox{\tt\small LorentzVector}$, which returns \mbox{\tt\small LorentzVector} objects when given an index. Numpy has an ``object array'' type, which stores pointers to Python objects in memory, but awkward-array's {\tt\small ObjectArray} constructs a Python object when given an index. This allows us to represent such data with 12$\times$ less memory, as we will see in the section on performance below.
+
+In the same spirit as integer/string index commutivity, methods of objects returned by {\tt\small ObjectArray} may be applied to the entire array for vectorized HEP calculations. For instance, an {\tt\small ObjectArray} of \mbox{\tt\small LorentzVectors} may be boosted en masse:
+
+\begin{center}
+\tt\small subleading\_jets.boost(leading\_jets)
+\end{center}
+
+\noindent which works equally well if {\tt\small subleading\_jets} is a jagged array (several per event) and {\tt\small leading\_jets} is a flat array (one per event), thanks to jagged broadcasting. An array of strings is an {\tt\small ObjectArray} of a {\tt\small JaggedArray}, converting subarrays of characters into {\tt\small str} objects on demand.
+
+In addition, awkward-array provides some array classes for dealing with data structures without affecting their high-level data types. Some file formats provide data in discontiguous chunks, such as ROOT's baskets or Parquet's pages and row groups. {\tt\small ChunkedArray} lets us view discontiguous chunks of data as a single logical array without copying, by mapping indexes. {\tt\small VirtualArray} uses a given function to generate an array on demand, rather than holding it in memory (passing it to a temporary cache, if desired). A chunked, virtual array is a lazy array, like Dask's ``delayed arrays.''
+
+Any of these can be cross-referenced Python objects, as the implementation is careful to avoid infinite recursion. To cross-reference individual elements, such as associating a single lepton with a jet, {\tt\small IndexedArray} represents a deferred indirection. An {\tt\small index} array stores locations {\tt\small j[i]} to look up in a {\tt\small content} array: given {\tt\small i}, it returns {\tt\small content[j[i]]}. {\tt\small JaggedArray} is like {\tt\small IndexedArray} except that it represents ranges of {\tt\small content} indexes, rather than individual indexes.
+
+{\tt\small SparseArray} is the conceptual opposite of {\tt\small IndexedArray}: its {\tt\small index} and {\tt\small content} must be the same length and each {\tt\small index} is the logical position of the corresponding {\tt\small content}. Other indexes are presumed to be zero or some default value. As a sparse matrix, this is known as the COOrdinate format. Whereas an {\tt\small IndexedArray} represents a smaller logical array than its {\tt\small content} (or one with duplicates), a {\tt\small SparseArray} represents a larger logical array than its {\tt\small content}. It is useful in HEP for looking up indexes in a table that is far too large to fit in memory, such as a mapping from ten-digit detector identifiers to measurement corrections.
+
+\section{Persistence, ROOT and Apache Arrow compatibility}
 
 blah blah blah
 
@@ -262,16 +301,6 @@ This work was supported by the National Science Foundation under grants ACI-1450
 
 %% \begin{frame}[fragile]{Extension to variable-sized, nested structures}
 %% \vspace{0.5 cm}
-%% Logical structure: \tabto{3 cm}{\ttfamily\textcolor{black}{[\textcolor{red}{[}\textcolor{darkblue}{0, 1, 2}], \textcolor{red}{[}], \textcolor{red}{[}\textcolor{darkblue}{3, 4}], \textcolor{red}{[}\textcolor{darkblue}{5, 6, 7, 8, 9}]\textcolor{red}{]}}}
-
-%% \vspace{0.05 cm}
-%% Offsets:           \tabto{3 cm}{\ttfamily\verb|[|\textcolor{red}{0,}\verb|         |\textcolor{red}{3,}\verb|  |\textcolor{red}{3,}\verb|      |\textcolor{red}{5,}\verb|             |\textcolor{red}{10}\verb|]|}
-
-%% \vspace{0.05 cm}
-%% Content:           \tabto{3 cm}{\ttfamily\verb|[ |\textcolor{darkblue}{0, 1, 2}\verb|,       |\textcolor{darkblue}{3, 4}\verb|,   |\textcolor{darkblue}{5, 6, 7, 8, 9}\verb|]|}
-
-%% \vspace{0.05 cm}
-%% Parents:           \tabto{3 cm}{\ttfamily\verb|[ |\textcolor{darkgreen}{0, 0, 0}\verb|        |\textcolor{purple}{2, 2,}\verb|   |\textcolor{darkorange}{3, 3, 3, 3, 3}\verb|]|}
 
 %% \vspace{0.5 cm}
 %% \uncover<2->{A ``jagged array'' (content $+$ offsets and/or content $+$ parents) is a basic building block of variable-sized, nested structure.}
