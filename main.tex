@@ -3,18 +3,19 @@
 \usepackage{xcolor}
 \usepackage{minted}
 \usepackage{tabto}
+\usepackage{mathtools}
 
 \title{Columnar data processing for HEP analysis}
 \author{Jim Pivarski\inst{1} \and Jaydeep Nandi\inst{2} \and David Lange\inst{1} \and Peter Elmer\inst{1}}
 \date{October 2018}
 
-\abstract{Wowie.}
+\abstract{FIXME}
 
-%% In the last stages of data analysis, only order-of-magnitude computing speedups translate into increased human productivity, and only if they're not difficult to set up. Producing a plot in a second instead of an hour is life-changing, but not if it takes two hours to write the analysis code. Fortunately, HPC-inspired techniques can result in such large speedups, but unfortunately, they can be difficult to use in a HEP setting.
+%% \abstract{In the last stages of data analysis, only order-of-magnitude computing speedups translate into increased human productivity, and only if they're not difficult to set up. Producing a plot in a second instead of an hour is life-changing, but not if it takes two hours to write the analysis code. Fortunately, HPC-inspired techniques can result in such large speedups, but unfortunately, they can be difficult to use in a HEP setting.
 
 %% These techniques generally favor operating on columns— arrays representing a single attribute across events, rather than whole events individually— which allows data to stream predictably from disk media to main memory and finally to CPU/GPU/KNL onboard memory (e.g. L* cache) for prefetching and sometimes allows for for vectorization. However, the need to work with variable-length structures in HEP, such as different numbers of particles per event, makes it difficult to apply this technique to HEP problems.
 
-%% We will describe several new software tools to make it easier to compute analysis functions with columnar arrays in HEP: array-at-a-time I/O in ROOT ("BulkIO") and Python/Numpy ("uproot"), compiling object-oriented analysis code into columnar operations ("oamap" for "object-array mapping"), and storage solutions with columnar granularity. We will show performance plots and usage examples.
+%% We will describe several new software tools to make it easier to compute analysis functions with columnar arrays in HEP: array-at-a-time I/O in ROOT ("BulkIO") and Python/Numpy ("uproot"), compiling object-oriented analysis code into columnar operations ("oamap" for "object-array mapping"), and storage solutions with columnar granularity. We will show performance plots and usage examples.}
 
 \xdefinecolor{dianablue}{rgb}{0.18,0.24,0.31}
 \xdefinecolor{darkblue}{rgb}{0.1,0.1,0.7}
@@ -44,7 +45,7 @@ This paper introduces awkward-array, a library designed to extend the array prog
 
 \section{Array programming and its extension to nested data}
 
-Array programming is an interface in which individual user commands apply to whole arrays: each function call performs a regular operation on millions of data points. Pioneered by APL in 1963, this programming style appears primarily in analyst-facing data processing languages such as S~(1976), MATLAB~(1984), S-PLUS~(1988), R~(1993), and Numpy~(2005). Beyond its succinct syntax, which can be easier to read than the corresponding for-loops, it encourages simple passes over columnar data that facilitates CPU cache-prefetching and vectorization. In fact, programs written in an array programming style are also well organized for Single Instruction Multiple Data (SIMD) processing, which makes it easier to migrate to GPUs.
+Array programming is an interface in which individual user commands apply to whole arrays: each function call performs a regular operation on millions of data points. Pioneered by APL in 1963, this programming style appears primarily in analyst-facing data processing languages such as S~(1976), MATLAB~(1984), S-PLUS~(1988), R~(1993), and Numpy~(2005). Beyond its succinct syntax, which can be easier to read than the corresponding for-loops, it encourages simple passes over columnar data that facilitates CPU cache-prefetching and vectorization. In fact, programs written in an array programming style are also appropriately organized for Single Instruction Multiple Data (SIMD) processing, which makes it easier to migrate to GPUs.
 
 Array programming usually includes the following elements (expressed in Numpy syntax here):
 
@@ -52,28 +53,28 @@ Array programming usually includes the following elements (expressed in Numpy sy
 \item[\hspace{1 cm}$\bullet$] Multidimensional slices: \tabto{5.8 cm}{\small \mintinline{python}{rgb_pixels[0, 50:100, ::3]}}
 \item[\hspace{1 cm}$\bullet$] Elementwise operations: \tabto{5.8 cm}{\small \mintinline{python}{all_pz = all_pt * sinh(all_eta)}}
 \item[\hspace{1 cm}$\bullet$] Broadcasting: \tabto{5.8 cm}{\small \mintinline{python}{all_phi - 2*pi}}
+\item[\hspace{1 cm}$\bullet$] Array reduction: \tabto{5.8 cm}{\small \mintinline{python}{array.sum()}} $\to$ scalar
 \item[\hspace{1 cm}$\bullet$] Masking (list compaction): \tabto{5.8 cm}{\small \mintinline{python}{data[trigger & (pt > 40)]}}
-\item[\hspace{1 cm}$\bullet$] Fancy indexing (gather): \tabto{5.8 cm}{\small \mintinline{python}{all_eta[argsort(all_pt)]}}
+\item[\hspace{1 cm}$\bullet$] Fancy indexing (``gather''): \tabto{5.8 cm}{\small \mintinline{python}{all_eta[argsort(all_pt)]}}
 \item[\hspace{1 cm}$\bullet$] Row/column commutativity \tabto{5.8 cm}{\small \mintinline{python}{table["column"][7]} (row 7 of column array)}
 \tabto{5.8 cm}{\small \mintinline{python}{table[7]["column"]} (field of row tuple 7)}
-\item[\hspace{1 cm}$\bullet$] Array reduction: \tabto{5.8 cm}{\small \mintinline{python}{array.sum()}} $\to$ scalar
 \end{description}
 
-\noindent The semantics of each of these is well established for rectangular tables and flat arrays, but they can be extended to arbitrarily nested data structures. The examples below illustrate common cases that are defined in detail later in the text. In these examples, {\small\mintinline{python}{events["jets"]}}, {\small\mintinline{python}{jetpt}}, etc., are lists of arbitrarily many objects or values.
+\noindent The semantics of each of these is well established for rectangular tables and flat arrays, but they can be extended to arbitrarily nested data structures. The examples below illustrate common cases that are defined in detail later in the text. In these examples, {\small\mintinline{python}{events["jets"]}}, {\small\mintinline{python}{jetpt}}, etc., contain lists of arbitrarily many objects or values.
 
 \begin{description}
 \item[\hspace{1 cm}$\bullet$] Multidimensional slices: \tabto{5.8 cm}{\small \mintinline{python}{events["jets"][:, 0]}} $\to$ first jet per event
 \item[\hspace{1 cm}$\bullet$] Elementwise operations: \tabto{5.8 cm}{\small \mintinline{python}{jetpt * sinh(jeteta)}} $\to$ keep nested structure
 \item[\hspace{1 cm}$\bullet$] Broadcasting: \tabto{5.8 cm}{\small \mintinline{python}{jetphi - metphi}} $\to$ expand {\small \mintinline{python}{metphi}} from
 \tabto{5.8 cm}one-per-event to one-per-jet before operation
+\item[\hspace{1 cm}$\bullet$] Array reduction: \tabto{5.8 cm}{\small \mintinline{python}{jetpt.max()}} $\to$ array of max jet $p_T$ per event
 \item[\hspace{1 cm}$\bullet$] Masking (list compaction): \tabto{5.8 cm}{\small \mintinline{python}{data[trigger]}} $\to$ drop whole events
 \tabto{5.8 cm}{\small \mintinline{python}{data[jetpt > 40]}} $\to$ drop jets from events  
-\item[\hspace{1 cm}$\bullet$] Fancy indexing (gather): \tabto{5.8 cm}{\small \mintinline{python}{a = argmax(jetpt)}} $\to$ {\small \mintinline{python}{[[2], [], [1], [4]]}}
+\item[\hspace{1 cm}$\bullet$] Fancy indexing (``gather''): \tabto{5.8 cm}{\small \mintinline{python}{a = argmax(jetpt)}} $\to$ {\small \mintinline{python}{[[2], [], [1], [4]]}}
 \tabto{5.8 cm}{\small \mintinline{python}{jeteta[a]}} $\to$ \mbox{\small \mintinline{python}{[[3.6], [], [-1.2], [0.4]]}\hspace{-0.5 cm}}
 \item[\hspace{1 cm}$\bullet$] Row/column commutativity \tabto{5.8 cm}{\small \mintinline{python}{events["jets"]["pt"][7, 1]}} is the same as
 \tabto{5.8 cm}{\small \mintinline{python}{events["jets"][7]["pt"][1]}} and \\
 \tabto{5.8 cm}{\small \mintinline{python}{events["jets"][7, 1]["pt"]}} etc.
-\item[\hspace{1 cm}$\bullet$] Array reduction: \tabto{5.8 cm}{\small \mintinline{python}{jetpt.max()}} $\to$ array of max jet $p_T$ per event
 \end{description}
 
 \noindent Consider the following extended example, which generates particle candidate combinations and then selects the best one. Procedural code like this (Python syntax):
@@ -93,24 +94,58 @@ for event in dataset:
 \end{minted}
 }
 
-\noindent can be replaced by the following array code.
+\noindent can be replaced by the following array-centric script.
 
 {\small\begin{minted}{python}
-pairs = events["jets"].cross(events["leptons"])  # cross-join particles per event
-goodpairs = pairs[cut(pairs["0"], pairs["1"])]   # pairs is a table of "0" and "1"
+pairs = events["jets"].cross(events["leptons"])  # cross-join within events
+goodpairs = pairs[cut(pairs["0"], pairs["1"])]   # into pairs["0"] and ["1"]
 candidates = pairs["0"] + pairs["1"]             # Lorentz vector + operator
-best = candidates[quality(candidates).argmax()]  # get best indexes, then best objects
-leptoquarks = best.flatten()                     # reduce structure to flat array
+best = candidates[quality(candidates).argmax()]  # best indexes, then objects
+leptoquarks = best.flatten()                     # reduce to flat array
 \end{minted}
 }
 
-HERE
-
 \section{High-level types and array programming interface}
 
-blah blah blah
+Arrays introduce a degree of static typing to dynamically typed programming languages, in the sense that all elements of an array have the same type and an operation may be performed across all elements without expensive type-checks. Conventional array processing environments like Numpy only support primitive types: numbers, booleans, and other fixed-size values (including records of fixed-size values). Fixed-size subarrays are presented as an array's multidimensional ``shape,'' and may be considered part of the type. Introducing nested data requires additional data types.
 
-\section{Low-level types and their uses}
+The type of a flat array with length $n$ could be denoted $[0, n) \to P$, as a function signature that takes integers between $0$ (inclusive) and $n$ (exclusive) to a primitive type $P$. An array of length $n$ with variable-sized subarrays would be $[0, n) \to [0, \infty) \to P$, as any non-negative integer could be in the second domain (though some are not valid for a particular dataset). This is known as a jagged, or ragged, array. Jagged arrays may be nested: $[0, n) \to [0, \infty) \to [0, \infty) \to P$.
+
+The extension of multidimensional slices to $[0, \infty)$ should be clear--- instead of selecting from $0$ to $n$ slots, slices select from $0$ to a number of slots that only becomes known while iterating through the array. (The type-safety is weaker than for flat arrays, whose shape is fully known in constant time.) Elementwise operations are only possible if all subarrays in each argument have the same lengths, and they preserve that structure in the output.
+
+Conventional broadcasting allows scalar $P$ data to be included in elementwise operations with arrays $[0, n) \to P$ by duplicating the one scalar to $n$ array elements. Jagged broadcasting duplicates each element of a flat array $[0, n) \to P$ to the corresponding jagged array elements $[0, n) \to [0, \infty) \to P$, increasing the depth of jaggedness by one. The same applies for any depth of jaggedness to one level deeper.
+
+When filtering a jagged array with a mask, we may want to remove subarrays (representing events) or we may want to remove subarray elements (representing particles). We can make that distinction by contrasting a boolean mask $[0, n) \to \mbox{\small\tt bool}$ with a jagged boolean mask $[0, n) \to [0, \infty) \to \mbox{\small\tt bool}$. In keeping with the rules of conventional array programming, a boolean mask would remove subarrays from a jagged array $[0, n) \to [0, \infty) \to P$. Extending these rules, a jagged boolean mask could remove subarray elements if they have the same jagged structure.
+
+Similarly, an integer array $[0, m) \to \mbox{\small\tt int}$ selects $m$ subarrays from a jagged array by the conventional rules, but a jagged integer array $[0, n) \to [0, \infty) \to \mbox{\small\tt int}$ could select subarray elements. Since this ``gather'' feature is often used with functions like {\it argmax}, {\it argmin}, and {\it argsort} to identify important indexes in one array and select elements at those indexes from another array, the jagged {\it argmax} and {\it argmin} should return jagged arrays with zero or one element in each subarray--- the max or min if any elements exist.
+
+Tables with named, differently typed columns can be included in this type system as a mapping from names to types. For instance,
+
+\[ [0, n) \to \left\{\begin{array}{l c l}
+\mbox{\small\tt "one"} & \to & P_1 \\
+\mbox{\small\tt "two"} & \to & P_2 \\
+\mbox{\small\tt "three"} & \to & P_3\mbox{.} \end{array}\right. \]
+
+\noindent In our extension of array programming, tables and jaggedness can be composed. This is useful in HEP for describing event records that contain variable-sized lists of particles, each with a different multiplicity, each containing attributes of various types. In some cases, it's useful for the particle attributes to be variable-sized lists as well. Type descriptions may be arbitrary trees:
+
+\[ [0, n) \to [0, \infty) \to \left\{\begin{array}{l c l}
+\mbox{\small\tt "one"} & \to & [0, m) \to \left \{\begin{array}{l c l} \mbox{\small\tt "x"} & \to & [0, \infty) \to P_1 \\ \mbox{\small\tt "y"} & \to & P_2 \end{array}\right. \\
+\mbox{\small\tt "two"} & \to & P_3 \\
+\mbox{\small\tt "three"} & \to & P_4\mbox{.} \end{array}\right. \]
+
+Rectangular tables may be sliced by row (integer index) or column (string index). So can jagged tables. A table described by $[0, n) \to [0, \infty) \to \{\mbox{\small\tt "one"} \to T_1\mbox{, }\mbox{\small\tt "two"} \to T_2\}$ sliced by a string index {\small\tt "one"} returns a jagged array $[0, n) \to [0, \infty) \to T_1$. In general, this means that integer indexes commute with string indexes, though integer indexes do not commute with other integer indexes, nor do string indexes commute with other strings.
+
+Primitives, variable-sized lists, and tables of records would be sufficient for most HEP cases, but sometimes polymorphic types and cross-references (pointers) are needed. Polymorphic types can be included with unions $T = T_1\ |\ T_2$ (elements may be type $T_1$ or type $T_2$) and optional types $?T$ (elements may be type $T$ or null). Since the possibilities of a polymorphic type are enumerated, operations must be legal on all enumerated possibilities, and operations on an optional type are only applied to non-null elements.
+
+For cross-references, such as tagging jets with their associated leptons, we allow type trees to be arbitrary graphs. A list may contain elements of a list elsewhere in the graph or its own ancestors. As an example of the latter case,
+
+\[ [0, n) \to T \coloneqq \big( \mbox{\small\tt int}\ |\ [0, \infty) \to T \big) \]
+
+\noindent is an array that may contain integers, lists of integers, or any depth of lists of integers.
+
+This set of types is as inclusive as most high-level programming languages, and it can be entirely constructed from columnar arrays.
+
+\section{Low-level data structures and their uses}
 
 blah blah blah
 
