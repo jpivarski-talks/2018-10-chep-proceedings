@@ -200,13 +200,7 @@ The Parquet file format is wildly different, beyond the scope of awkward-array t
 
 Although most data would be drawn from a standard format like ROOT (in HEP) or Parquet (beyond HEP), it is often necessary to save derived quantities in an analysis. Derived quantities might use features not available in the source format. Therefore, awkward-array has a persistence format: a JSON string describing how awkward-array classes are nested with cross-references and a binary blob for each array. These may be placed in any container of named binary blobs, such as a ZIP file, an HDF5 file, or a distributed object store. By default, {\tt\small VirtualArrays} representing data from ROOT or Parquet are saved as instructions for reading from the original file, not the data themselves. Thus, an analyst can read ROOT or Parquet data, add or replace fields in its {\tt\small Tables}, and save the ensemble in a file representing only the changes, which can be considerably smaller than the original data.
 
-The JSON description of the awkward-array structure is formatted like an executable LISP expression, providing a high degree of forward compatibility: later versions may construct new expressions, but they are executable in older versions of the awkward-array library. Deserialization checks functions to execute against a whitelist of allowed functions for security. (A user might need to manually expand the whitelist for forward compatibility.) Python values are expressed in JSON for cross-language compatibility as much as possible, though pickle is a fallback.
-
-
-
-
-
-
+The JSON description of the awkward-array structure is formatted like an executable LISP expression, providing a high degree of forward compatibility: later versions may construct new expressions, but they are executable in older versions of the awkward-array library. The deserialization process checks function names against a whitelist of allowed functions for security. (A user might need to manually expand the whitelist to get forward compatibility.) Python values are expressed in JSON for cross-language compatibility as much as possible, though pickle is a fallback.
 
 \section{Performance measurements}
 
