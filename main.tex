@@ -9,7 +9,7 @@
 \author{Jim Pivarski\inst{1} \and Jaydeep Nandi\inst{2} \and David Lange\inst{1} \and Peter Elmer\inst{1}}
 \date{October 2018}
 
-\abstract{FIXME}
+\abstract{In the last stages of data analysis, physicists are often forced to choose between simplicity and execution speed. High-level languages like Python are known for ease of use but also very slow execution in High Energy Physics (HEP). However, Python is used in speed-critical data analysis in other fields of science and industry. In those fields, most operations are performed on Numpy arrays in an array programming style; this style can be adopted for HEP by introducing variable-sized, nested data structures. We describe how array programming may be extended for HEP use-cases and an implementation known as awkward-array. We also present integration with ROOT, Apache Arrow, and Parquet, as well as preliminary performance results.}
 
 %% \abstract{In the last stages of data analysis, only order-of-magnitude computing speedups translate into increased human productivity, and only if they're not difficult to set up. Producing a plot in a second instead of an hour is life-changing, but not if it takes two hours to write the analysis code. Fortunately, HPC-inspired techniques can result in such large speedups, but unfortunately, they can be difficult to use in a HEP setting.
 
@@ -41,11 +41,11 @@
 
 The field of High Energy Physics (HEP) has always dealt with big data, large enough datasets that finite memory and processing speed cannot be ignored. Traditionally, physicists have relied on compiled languages like Fortran and C++ to analyze large datasets in batch, but this limits interactive exploration. Today, data analysts in other fields, including industry, are developing tools to analyze large datasets in high-level languages, but these tools treat data as rectangular tables and flat arrays. HEP analysis requires {\it nested} data--- arbitrarily many tracks within jets or variable-sized collections of particle candidates--- which do not fit into rectangular data without padding and truncation.
 
-This paper introduces awkward-array, a library designed to extend the array programming model used by MATLAB, R, Numpy, and Pandas to nested and otherwise ``awkward'' data structures. The library is written in pure Python, depending only on Numpy, for easier integration into the Python data science ecosystem.
+This paper describes how the concepts of array programming may be extended to more complex data structures. It also introduces awkward-array, an implementation of these ``awkward'' data structures as arrays, which is written in pure Python, depending only on Numpy, for easier integration into the scientific Python ecosystem.
 
 \section{Array programming and its extension to nested data}
 
-Array programming is an interface in which individual user commands apply to whole arrays: each function call performs a regular operation on millions of data points. Pioneered by APL in 1963, this programming style appears primarily in analyst-facing data processing languages such as S~(1976), MATLAB~(1984), S-PLUS~(1988), R~(1993), and Numpy~(2005). Beyond its succinct syntax, which can be easier to read than the corresponding for-loops, it encourages simple passes over columnar data that facilitates CPU cache-prefetching and vectorization. In fact, programs written in an array programming style are also appropriately organized for Single Instruction Multiple Data (SIMD) processing, which makes it easier to migrate to GPUs.
+Array programming is an interface in which individual user commands apply to whole arrays: each function call performs a regular operation on millions of data points. Pioneered by APL~\cite{apl} in 1963, this programming style appears primarily in analyst-facing data processing languages such as S~(1976), MATLAB~(1984), S-PLUS~(1988), R~(1993), and Numpy~(2005). Beyond its succinct syntax, which can be easier to read than the corresponding for-loops, it encourages simple passes over columnar data that facilitates CPU cache-prefetching and vectorization. In fact, programs written in an array programming style are also appropriately organized for Single Instruction Multiple Data (SIMD) processing, which makes it easier to migrate to GPUs.
 
 Array programming usually includes the following elements (expressed in Numpy syntax here):
 
@@ -271,20 +271,17 @@ for (int d = 1;  d < blockSize.x;  d *= 2) {
 }
 \end{minted}
 }
-\noindent The rate of this algorithm on a Tesla P100 GPU and vector instructions on a Xeon Silver 4110 CPU are shown in Figure~\ref{rates_logy} as a function of the Poisson average number of items per group. For comparison, two sequential algorithms (nested for loops with all compiler optimizations) executed on the same CPU are overlaid. For any 
-
-
-
+\noindent The rate of this algorithm on a Tesla P100 GPU and vector instructions on a Xeon Silver 4110 CPU are shown in Figure~\ref{rates_logy} as a function of the Poisson average number of items per group. For comparison, two sequential algorithms (nested for loops with all compiler optimizations, same CPU) are overlaid.
 
 \begin{figure}
 \includegraphics[width=0.5\linewidth]{sum_rates_logy.pdf}\includegraphics[width=0.5\linewidth]{max_rates_logy.pdf}
 
-\caption{ \label{rates_logy}}
+\caption{Jagged reduction \mintinline{python}{jaggedarray.sum()} (left) and \mintinline{python}{jaggedarray.max()} (right) for two sequential algorithms (CPU) and our vectorized algorithm on CPU and GPU. \label{rates_logy}}
 \end{figure}
 
 \section{Future directions}
 
-Numba, Pandas, Dask, GPU
+Numpy arrays are the common language of Python's scientific ecosystem. Now that structures necessary for HEP have been cast as arrays, they can be more easily integrated into this ecosystem. As a next step, awkward-arrays will be added as a Pandas extension type, so that columns in a Pandas DataFrame may be structured. Following that, {\tt\small ChunkedArrays} of {\tt\small VirtualArrays} will be wrapped as Dask delayed arrays so that calculations can be distributed without moving data. Problems that require conventional loops and conditionals can be optimized by wrapping awkward-arrays as Numba extensions (successfully implemented in OAMap, awkward-array's prececessor). Finally, awkward-array's exclusive dependence on Numpy should make it transparently portable to GPUs with CuPy, but that remains to be tested.
 
 \section{Acknowledgements}
 
@@ -306,297 +303,5 @@ This work was supported by the National Science Foundation under grants ACI-1450
 \bibitem{Nandi} FIXME: Jaydeep's GitHub repo
 
 \end{thebibliography}
-
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-
-%% \begin{minted}{python}
-%% def cross(self, other):
-%%     offsets = counts2offsets(self.counts * other.counts)
-%%     parents = offsets2parents(offsets)
-%%     indexes = numpy.arange(offsets[-1], dtype=int)
-
-%%     # fancy indexing get -> SIMD gather
-%%     ocp = other.counts[parents]
-%%     iop = indexes - offsets[parents]
-%%     iop_ocp = iop // ocp
-
-%%     left = self.content[self.starts[parents] + iop_ocp]
-%%     right = other.content[other.starts[parents] + iop - ocp * iop_ocp]
-
-%%     return JaggedArray.fromoffsets(offsets, Table(left, right))
-%% \end{minted}
-
-%% \begin{figure}
-%% \begin{center}
-%% \includegraphics[width=0.7\linewidth]{hillis-steele-3.pdf}
-%% \end{center}
-
-%% \caption{\label{hillis-steele-3}}
-%% \end{figure}
-
-%% \begin{frame}[fragile]{Extension to variable-sized, nested structures}
-%% \vspace{0.5 cm}
-
-%% \vspace{0.5 cm}
-%% \uncover<2->{A ``jagged array'' (content $+$ offsets and/or content $+$ parents) is a basic building block of variable-sized, nested structure.}
-
-%% \begin{itemize}
-%% \item<3-> use a jagged array as the content of another jagged array to get {\tt\small list<list<X>>}
-%% \item<4-> use a fixed-size rectangular array of dimension {\tt\small N} as content to get {\tt\small list<X[N]>}
-%% \item<5-> use a fixed-size rectangular array of dimension {\tt\small M} as offsets to get {\tt\small list<X>[M]}
-%% \end{itemize}
-
-%% \vspace{0.25 cm}
-%% \uncover<6->{When combined with a table type (column names $\to$ arrays), this is as expressive as any combination of {\tt\small std::vector} and {\tt\small struct} (i.e.\ as expressive as ProtoBuf).}
-%% \end{frame}
-
-%% \begin{frame}{Array programming can be extended to jagged arrays}
-%% \vspace{0.1 cm}
-%% \begin{columns}
-%% \column{1.05\linewidth}
-%% \begin{itemize}\setlength{\itemsep}{0.15 cm}
-%% \item Multidimensional slices: \tabto{5.5 cm}{\small \mintinline{python}{events["jets"][:, 0]}} $\to$ first jet per event
-%% \item<2-> Elementwise operations: \tabto{5.5 cm}{\small \mintinline{python}{jetpt * sinh(jeteta)}} $\to$ \mbox{keep jagged structure\hspace{-1 cm}}
-%% \item<3-> Broadcasting: \tabto{5.5 cm}{\small \mintinline{python}{jetphi - metphi}} $\to$ expand {\small \mintinline{python}{metphi}} from
-
-%% \tabto{5.5 cm}one-per-event to one-per-jet before operation
-
-%% \item<4-> Masking (list compaction): \tabto{5.5 cm}{\small \mintinline{python}{data[trigger]}} $\to$ drop whole events
-
-%% \tabto{5.5 cm}{\small \mintinline{python}{data[jetpt > 40]}} $\to$ drop jets from events
-
-%% \item<5-> Fancy indexing (gather/scatter): \tabto{5.5 cm}{\small \mintinline{python}{a = argmax(jetpt)}} $\to$ \mbox{\small \mintinline{python}{[[2], [], [1], [4]]}\hspace{-0.5 cm}}
-
-%% \tabto{5.5 cm}{\small \mintinline{python}{jeteta[a]}} $\to$ \mbox{\small \mintinline{python}{[[3.6], [], [-1.2], [0.4]]}\hspace{-0.5 cm}}
-
-%% \item<6-> Row/column commutativity \tabto{5.5 cm}{\small \mintinline{python}{events["jets"]["pt"][7, 1]}} \mbox{(all the same)\hspace{-0.5 cm}}
-
-%% (project jagged tables to \tabto{5.5 cm}{\small \mintinline{python}{events["jets"][7]["pt"][1]}}
-
-%% jagged arrays before indexing): \tabto{5.5 cm}{\small \mintinline{python}{events[7]["jets"]["pt"][1]}}
-
-%% \tabto{5.5 cm}{\small \mintinline{python}{events["jets"][7, 1]["pt"]}}
-
-%% \tabto{5.5 cm}{\small \mintinline{python}{events[7]["jets"][1]["pt"]}}
-
-%% \item<7-> Jagged array reduction: \tabto{5.5 cm}{\small \mintinline{python}{jetpt.max()}} $\to$ array of max jet $p_T$ per event
-%% \end{itemize}
-%% \end{columns}
-%% \end{frame}
-
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-
-%% \section{Appendix}
-%% \tiny
-
-%% \begin{minted}{python}
-%% %%timeit
-%% k = 0
-%% for event in events:
-%%     for muon in event:
-%%         pz[k] = muon.pt * math.sinh(muon.eta)
-%%         k += 1
-%% \end{minted}
-
-%% \begin{minted}{python}
-%% import numba
-
-%% @numba.jit
-%% def callme(pz, events):
-%%     k = 0
-%%     for event in events:
-%%         for muon in event:
-%%             pz[k] = muon.pt * math.sinh(muon.eta)
-%%             k += 1
-
-%% %%timeit
-%% callme(pz, events)
-%% \end{minted}
-
-%% \begin{minted}{python}
-%% import numpy
-
-%% %%timeit
-%% pz = events["pt"] * numpy.sinh(events["eta"])
-%% \end{minted}
-
-%% \begin{minted}{python}
-%% %%timeit
-%% k = 0
-%% for event in events:
-%%     pt = event["Muon_pt"]
-%%     eta = event["Muon_eta"]
-%%     pz[k : k + len(pt)] = pt * numpy.sinh(eta)
-%%     k += len(pt)
-%% \end{minted}
-
-%% \begin{minted}{python}
-%% from math import sinh
-
-%% events = [
-%%     [],
-%%     [{"pt": 129.8,
-%%       "eta": -1.006,
-%%       "phi": -0.581},
-%%      {"pt": 73.08,
-%%       "eta": -0.719,
-%%       "phi": -1.51}],
-%%     ...
-%%     ]
-
-%% %%timeit
-%% k = 0
-%% for event in events:
-%%     for muon in event:
-%%         pz[k] = (muon["pt"] *
-%%                  sinh(muon["eta"]))
-%%         k += 1
-%% \end{minted}
-
-%% \begin{minted}{python}
-%% class Muon(object):
-%%     __slots__ = ["pt", "eta", "phi"]
-%%     def __init__(self, pt, eta, phi):
-%%         self.pt = pt
-%%         self.eta = eta
-%%         self.phi = phi
-
-%% events = [
-%%     [],
-%%     [Muon(129.8, -1.006, -0.581),
-%%      Muon(73.08, -0.719, -1.51)],
-%%     ...
-%%     ]
-
-%% %%timeit
-%% k = 0
-%% for event in asobjs:
-%%     for muon in event:
-%%         pz[k] = (muon.pt *
-%%                  sinh(muon.eta))
-%%         k += 1
-%% \end{minted}
-
-%% \begin{minted}{python}
-%% import ROOT
-%% import root_numpy
-
-%% file = ROOT.TFile("NanoAOD-DYJetsToLL.root")
-%% tree = file.Get("tree")
-
-%% %%timeit
-%% root_numpy.tree2array(tree, ["Muon_pt", "Muon_eta", "Muon_phi"])
-
-
-
-
-%% import uproot
-%% tree = uproot.open("NanoAOD-DYJetsToLL.root")["tree"]
-
-%% %%timeit
-%% pt, eta, phi = tree.arrays(["Muon_pt", "Muon_eta", "Muon_phi"], outputtype=tuple)
-%% \end{minted}
-
-%% \begin{minted}{python}
-%% import math
-%% import numpy
-%% import ROOT
-
-%% file = ROOT.TFile("NanoAOD-DYJetsToLL.root")
-%% tree = file.Get("tree")
-
-%% tree.SetBranchStatus("*", 0)
-%% tree.SetBranchStatus("nMuon", 1)
-%% tree.SetBranchStatus("Muon_pt", 1)
-%% tree.SetBranchStatus("Muon_eta", 1)
-
-%% pz = numpy.empty(552056, dtype=numpy.float32)
-
-%% %%timeit
-%% k = 0
-%% for event in tree:
-%%     for pt, eta in zip(event.Muon_pt, event.Muon_eta):
-%%         pz[k] = pt * math.sinh(eta)
-%%         k += 1
-%% \end{minted}
-
-%% \begin{minted}{c++}
-%% #include <ctime>
-%% #include <sys/time.h>
-%% struct timeval starttime, endtime;
-
-%% auto file = TFile::Open("NanoAOD-DYJetsToLL.root")
-%% ROOT::RDataFrame rdf("tree", file);
-%% TTree* tree; file->GetObject("tree", tree);   // perhaps unnecessary, but just in case...
-%% tree->SetBranchStatus("*", 0);
-%% tree->SetBranchStatus("nMuon", 1);
-%% tree->SetBranchStatus("Muon_pt", 1);
-%% tree->SetBranchStatus("Muon_eta", 1);
-
-%% float pz[552056];
-%% gettimeofday(&starttime, 0);
-%% int k = 0;
-%% rdf.Foreach([&k](const ROOT::VecOps::RVec<float> &Muon_pt,
-%%                  const ROOT::VecOps::RVec<float> &Muon_eta) {
-%%     for (int i = 0;  i < Muon_pt.size();  i++) {
-%%         pz[k]= Muon_pt[i] * sinh(Muon_eta[i]);
-%%         k++;
-%%     }
-%% }, {"Muon_pt", "Muon_eta"});
-%% gettimeofday(&endtime, 0);
-%% \end{minted}
-
-%% \begin{minted}{c++}
-%% #include <ctime>
-%% #include <sys/time.h>
-%% struct timeval starttime, endtime;
-
-%% auto file = TFile::Open("NanoAOD-DYJetsToLL.root")
-%% TTree* tree; file->GetObject("tree", tree);   // perhaps unnecessary, but just in case...
-%% tree->SetBranchStatus("*", 0);
-%% tree->SetBranchStatus("nMuon", 1);
-%% tree->SetBranchStatus("Muon_pt", 1);
-%% tree->SetBranchStatus("Muon_eta", 1);
-
-%% TTreeReader reader("tree", file);
-%% TTreeReaderArray<float> pt(reader, "Muon_pt");
-%% TTreeReaderArray<float> eta(reader, "Muon_eta");
-
-%% gettimeofday(&starttime, 0);
-%% int k = 0;
-%% while (reader.Next()) {
-%%     for (int i = 0;  i < pt.GetSize();  i++) {
-%%         pz[k] = pt[i] * sinh(eta[i]);
-%%         k++;
-%%     }
-%% }
-%% gettimeofday(&endtime, 0);
-%% \end{minted}
-
-%% \begin{minted}{c++}
-%% #include <ctime>
-%% #include <sys/time.h>
-%% struct timeval starttime, endtime;
-
-%% auto file = TFile::Open("NanoAOD-DYJetsToLL.root")
-%% TTree* tree; file->GetObject("tree", tree);
-
-%% UInt_t nMuon; float pts[10]; float etas[10];
-%% TBranch* nbranch = tree->GetBranch("nMuon");       tree->SetBranchAddress("nMuon", &nMuon);
-%% TBranch* ptbranch = tree->GetBranch("Muon_pt");    tree->SetBranchAddress("Muon_pt", pts);
-%% TBranch* etabranch = tree->GetBranch("Muon_eta");  tree->SetBranchAddress("Muon_eta", etas);
-
-%% gettimeofday(&starttime, 0);
-%% int k = 0;
-%% for (int i = 0;  i < 701716;  i++) {
-%%     // TBranch::GetEntry, rather than TTree::GetEntry, avoids a loop over branches
-%%     nbranch->GetEntry(i);    ptbranch->GetEntry(i);    etabranch->GetEntry(i);
-%%     for (int j = 0;  j < nMuon;  j++) {
-%%         pz[k] = pts[j] * sinh(etas[j]);
-%%         k++;
-%%     }
-%% }
-%% gettimeofday(&endtime, 0);
-%% \end{minted}
 
 \end{document}
