@@ -204,7 +204,15 @@ The JSON description of the awkward-array structure is formatted like an executa
 
 \section{Performance measurements}
 
-blah blah blah
+The data structures and operations described here were designed for performance, but a full study has not yet been carried out. Such a study would require a target HEP analysis, since performance differs in detail from one analysis to the next.
+
+However, this problem has a natural order parameter: the size of the arrays, which should be chosen to significantly exceed any metadata in awkward-array classes. It also has an obvious hotspot: stepping through Python instructions is significantly slower than any numerical operations. This prescribes a simple rule--- Python code should never iterate over all elements of an array; any operation that scales with the number of elements in an array must be performed in compiled code (i.e.\ Numpy).
+
+As a rough indicator of performance trade-offs, we studied one operation in a variety of contexts, the jagged elementwise calculation
+\begin{center}
+\mintinline{python}{pz = pt * numpy.sinh(eta)}
+\end{center}
+\noindent where \mintinline{python}{pt} and \mintinline{python}{eta} are jagged arrays with the same structure: 552,056 muons in 701,716 events. Table~\ref{quantify} shows the memory used to store these data before calculation and the time to compute in awkward-array, ROOT, pure Python, and instrumented Python like awkward-array and PyROOT in which Python code is iterating over all elements of the arrays. The differences span orders of magnitude.
 
 \begin{table}[b]
 \begin{minipage}{0.4\linewidth}\scriptsize
@@ -249,8 +257,57 @@ blah blah blah
 %% \hfill \textcolor{gray}{\scriptsize all with warmed disk cache in the same environment} & \\
 \end{tabular}
 \end{minipage}}}\end{minipage}
-\caption{\label{quantify}}
+\caption{Horizontal study of \mintinline{python}{pz = pt * numpy.sinh(eta)} in many types of systems. \label{quantify}}
 \end{table}
+
+If this style of programming is adopted for HEP analysis, it presents an opportunity to optimize the array primitives independently of the analysis code. Array-centric data structures are ripe for vectorization, but some of the na\"ive algorithms, such as jagged reduction, have loop-carried dependencies that prevent vectorization. One of us (Nandi) developed vectorized algorithms for jagged operations, such as this CUDA implementation of jagged reduction:
+{\small\begin{minted}{python}
+int i = threadIdx.x;
+for (int d = 1;  d < blockSize.x;  d *= 2) {
+    if (i >= d  &&  parents[i] == parents[i - d]) {
+        content[i] += content[i - d];
+    }
+    __syncthreads();
+}
+\end{minted}
+}
+\noindent The rate of this algorithm on a Tesla P100 GPU and vector instructions on a Xeon Silver 4110 CPU are shown in Figure~\ref{rates_logy} as a function of the Poisson average number of items per group. For comparison, two sequential algorithms (nested for loops with all compiler optimizations) executed on the same CPU are overlaid. For any 
+
+
+
+
+\begin{figure}
+\includegraphics[width=0.5\linewidth]{sum_rates_logy.pdf}\includegraphics[width=0.5\linewidth]{max_rates_logy.pdf}
+
+\caption{ \label{rates_logy}}
+\end{figure}
+
+\section{Future directions}
+
+Numba, Pandas, Dask, GPU
+
+\section{Acknowledgements}
+
+This work was supported by the National Science Foundation under grants ACI-1450377 and PHY-1624356.
+
+\begin{thebibliography}{8}
+% Journal Author, Journal \textbf{Volume}, page numbers (year)
+
+\bibitem{uproot} Jim Pivarski et al., ``uproot'' [software], Release 3.2.6, Zenodo, 22 October, 2018. \url{https://zenodo.org/record/1469102}
+
+\bibitem{uproot-methods} Jim Pivarski et al., ``uproot-methods'' [software], Release 0.4.1, Zenodo, 26 October, 2018. \url{https://zenodo.org/record/1472439}
+
+\bibitem{awkward} Jim Pivarski, ``awkward-array'' [software], Release 0.4.1, Zenodo, 26 October, 2018. \url{https://zenodo.org/record/1472437}
+
+\bibitem{ieee} FIXME: IEEE paper
+
+\bibitem{columnar-objects} FIXME: columnar objects paper (find it in Strange Loop)
+
+\bibitem{Nandi} FIXME: Jaydeep's GitHub repo
+
+\end{thebibliography}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 %% \begin{minted}{python}
 %% def cross(self, other):
@@ -276,38 +333,6 @@ blah blah blah
 
 %% \caption{\label{hillis-steele-3}}
 %% \end{figure}
-
-\begin{figure}
-\includegraphics[width=0.5\linewidth]{sum_rates_logy.pdf}\includegraphics[width=0.5\linewidth]{max_rates_logy.pdf}
-
-\caption{\label{rates_logy}}
-\end{figure}
-
-\section{Future directions}
-
-Numba, Pandas, Dask, GPU
-
-\section{Acknowledgements}
-
-This work was supported by the National Science Foundation under grants ACI-1450377 and PHY-1624356.
-
-\begin{thebibliography}{8}
-% Journal Author, Journal \textbf{Volume}, page numbers (year)
-
-\bibitem{uproot} Jim Pivarski et al., ``uproot'' [software], Release 3.2.6, Zenodo, 22 October, 2018. \url{https://zenodo.org/record/1469102}
-
-\bibitem{uproot-methods} Jim Pivarski et al., ``uproot-methods'' [software], Release 0.4.1, Zenodo, 26 October, 2018. \url{https://zenodo.org/record/1472439}
-
-\bibitem{awkward} Jim Pivarski, ``awkward-array'' [software], Release 0.4.1, Zenodo, 26 October, 2018. \url{https://zenodo.org/record/1472437}
-
-\bibitem{ieee} FIXME: IEEE paper
-
-\bibitem{columnar-objects} FIXME: columnar objects paper (find it in Strange Loop)
-
-\end{thebibliography}
-
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-
 
 %% \begin{frame}[fragile]{Extension to variable-sized, nested structures}
 %% \vspace{0.5 cm}
