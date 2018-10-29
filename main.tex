@@ -259,6 +259,8 @@ As a rough indicator of performance trade-offs, we studied one operation in a va
 \end{table}
 
 If this style of programming is adopted for HEP analysis, it presents an opportunity to optimize the array primitives independently of the analysis code. Array-centric data structures are ripe for vectorization, but some of the na\"ive algorithms, such as jagged reduction, have loop-carried dependencies that prevent vectorization. One of us (Nandi) developed vectorized algorithms for jagged operations~\cite{jaydeep}, such as this CUDA implementation of jagged reduction:
+\begin{center}
+\begin{minipage}{0.6\linewidth}
 {\small\begin{minted}{python}
 int i = threadIdx.x;
 for (int d = 1;  d < blockSize.x;  d *= 2) {
@@ -269,6 +271,8 @@ for (int d = 1;  d < blockSize.x;  d *= 2) {
 }
 \end{minted}
 }
+\end{minipage}
+\end{center}
 \noindent The rate of this algorithm on a Tesla P100 GPU and vector instructions on a Xeon Silver 4110 CPU are shown in Figure~\ref{rates_logy} as a function of the Poisson average number of items per group. For comparison, two sequential algorithms (nested for loops with all compiler optimizations, same CPU) are overlaid.
 
 \begin{figure}
