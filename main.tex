@@ -119,14 +119,14 @@ When filtering a jagged array with a mask, we may want to remove subarrays (repr
 
 Similarly, an integer array $[0, m) \to \mbox{\small\tt int}$ selects $m$ subarrays from a jagged array by the conventional rules, but a jagged integer array $[0, n) \to [0, \infty) \to \mbox{\small\tt int}$ could select subarray elements. Since this ``gather'' feature is often used with functions like {\it argmax}, {\it argmin}, and {\it argsort} to identify important indexes in one array and select elements at those indexes from another array, the jagged {\it argmax} and {\it argmin} should return jagged arrays with zero or one element in each subarray--- the max or min if any elements exist.
 
-Tables with named, differently typed columns can be included in this type system as a mapping from names to types. For instance, a table with three columns is
+Tables with named, differently typed columns can be included in this type system as a mapping from names to types. For instance, a table with three columns is $[0, n) \to \{\mbox{\small\tt "one"} \to P_1\mbox{, }\mbox{\small\tt "two"} \to P_2\mbox{, }\mbox{\small\tt "three"} \to P_3\}$.
 
-\[ [0, n) \to \left\{\begin{array}{l c l}
-\mbox{\small\tt "one"} & \to & P_1 \\
-\mbox{\small\tt "two"} & \to & P_2 \\
-\mbox{\small\tt "three"} & \to & P_3\mbox{.} \end{array}\right. \]
+%% \[ [0, n) \to \left\{\begin{array}{l c l}
+%% \mbox{\small\tt "one"} & \to & P_1 \\
+%% \mbox{\small\tt "two"} & \to & P_2 \\
+%% \mbox{\small\tt "three"} & \to & P_3\mbox{.} \end{array}\right. \]
 
-\noindent In our extension of array programming, tables and jaggedness can be composed. This is useful in HEP for describing event records that contain variable-sized lists of particles, each with a different multiplicity, each containing attributes of various types. In some cases, it's useful for the particle attributes to be variable-sized lists as well. Type descriptions may then be arbitrary trees like the following:
+In our extension of array programming, tables and jaggedness can be composed. This is useful in HEP for describing event records that contain variable-sized lists of particles, each with a different multiplicity, each containing attributes of various types. In some cases, it's useful for the particle attributes to be variable-sized lists as well. Type descriptions may then be arbitrary trees like the following:
 
 \vspace{-\baselineskip}
 \[ [0, n) \to [0, \infty) \to \left\{\begin{array}{l c l}
@@ -195,9 +195,7 @@ The awkward-array classes were not designed to be a new format, but to give exis
 
 The scope of awkward-array was chosen such that ROOT, Apache Arrow, and Parquet data may be viewed through configurations of the awkward classes. Numpy natively supports the full range of numeric types, big and little endian byte orders, and fixed-size subarrays, which awkward-array inherits. {\tt\small ByteJaggedArray} can use ROOT's basket format directly, which specifies the positions of variable-sized entries by byte index. All the baskets in a branch may be viewed as a {\tt\small ChunkedArray}, while lazy loading and decompression are provided by {\tt\small VirtualArray}. A ROOT TTree is a (possibly jagged) {\tt\small Table}, and pointer references can be emulated with {\tt\small IndexedArray}. Arbitrary C++ types are encoded in ROOT's streamers, which uproot~\cite{uproot} translates to Python classes. Data with this general type are then presented as {\tt\small ObjectArrays} with {\tt\small TLorentzVector} being the primary example.
 
-Apache Arrow has a simpler data model consisting only of primitives, arbitrary-length lists, records, unions, strings, date/time types, and ``dictionary encodings,'' in which a small set of large values, such as the names of categories (strings), are represented by fixed-width integers for efficiency. All of these arrays are bit-masked to allow missing (null) data anywhere. {\tt\small JaggedArrays} represent the lists, {\tt\small Tables} the records, {\tt\small UnionArrays} the unions, {\tt\small StringArrays} (which are just {\tt\small JaggedArrays} of characters) represent the strings, and {\tt\small ObjectArrays} represent the date/time types. Dictionary encodings are {\tt\small IndexedArrays} without cross-references.
-
-The Parquet file format is wildly different, beyond the scope of awkward-array to wrap directly, but pyarrow (the Python front-end for Arrow-C++ and Parquet-C++) converts Parquet into Arrow while reading. This provides a simple way for awkward-array to view Parquet data.
+Apache Arrow has a simpler data model consisting only of primitives, arbitrary-length lists, records, unions, strings, date/time types, and ``dictionary encodings,'' in which a small set of large values, such as the names of categories (strings), are represented by fixed-width integers for efficiency. All of these arrays are bit-masked to allow missing (null) data anywhere. {\tt\small JaggedArrays} represent the lists, {\tt\small Tables} the records, {\tt\small UnionArrays} the unions, {\tt\small StringArrays} (which are just {\tt\small JaggedArrays} of characters) represent the strings, and {\tt\small ObjectArrays} represent the date/time types. Dictionary encodings are {\tt\small IndexedArrays} without cross-references. The Parquet file format is wildly different, beyond the scope of awkward-array to wrap directly, but pyarrow (the Python front-end for Arrow-C++ and Parquet-C++) converts Parquet into Arrow.
 
 Although most data would be drawn from a standard format like ROOT (in HEP) or Parquet (beyond HEP), it is often necessary to save derived quantities after some analysis. Derived quantities might use features not available in the source format. Therefore, awkward-array has its own persistence format: a JSON string describing how awkward-array classes are nested with cross-references and a binary blob for each array. These may be placed in any container of named binary blobs, such as a ZIP file, an HDF5 file, or a distributed object store. By default, {\tt\small VirtualArrays} representing data from ROOT or Parquet are saved as instructions for reading from the original file, rather than the data themselves. Thus, an analyst can read ROOT or Parquet data, add or replace fields in its {\tt\small Tables}, and save the ensemble in a file representing only the changes, which can be considerably smaller than the original data.
 
@@ -205,9 +203,7 @@ The JSON description of the awkward-array structure is formatted like an executa
 
 \section{Performance measurements}
 
-The data structures and operations described here were designed for performance, but a full study has not yet been carried out. Such a study would require a target HEP analysis, since performance differs in detail from one analysis to the next.
-
-However, arrays have a natural order parameter: their size, which should be chosen to significantly exceed any metadata in the awkward-array classes. It also has an obvious hotspot: stepping through Python instructions is significantly slower than any numerical operations. This prescribes a simple rule--- Python code should never iterate over all elements of an array; any operation that scales with the number of elements in an array must be performed in compiled code (i.e.\ Numpy).
+The data structures and operations described here were designed for performance, but a full study has not yet been carried out. Such a study would require a target HEP analysis, since performance differs in detail from one analysis to the next. However, arrays have a natural order parameter: their size, which should be chosen to significantly exceed any metadata in the awkward-array classes. It also has an obvious hotspot: stepping through Python instructions is significantly slower than any numerical operations. This prescribes a simple rule--- Python code should never iterate over all elements of an array; any operation that scales with the number of elements in an array must be performed in compiled code (i.e.\ Numpy).
 
 As a rough indicator of performance trade-offs, we studied one operation in a variety of contexts, the jagged elementwise calculation
 \begin{center}
