@@ -116,7 +116,7 @@ Extending the concept of {\bf multidimensional slices} from subintervals of $[0,
 
 Conventional {\bf broadcasting} allows scalar $P$ data to be an operand in elementwise operations with arrays $[0, n) \to P$ by duplicating the one scalar to $n$ array elements. Jagged broadcasting duplicates each element of a flat array $[0, n) \to P$ to the corresponding jagged array elements $[0, n) \to [0, \infty) \to P$. The same applies for any depth of jaggedness: broadcasting increases the jaggedness of operands to match the jaggedness of the most deeply nested array.
 
-{\bf Reducing} a $[0, n) \to P$ array, such as computing its sum, min, or max, returns a scalar $P$. Reducing a jagged $[0, n) \to [0, \infty) \to P$ array, such as computing the sum of each subarray, retuns $[0, n) \to P$, decreasing its jaggedness by one.
+{\bf Reducing} a flat $[0, n) \to P$ array, such as computing its sum, min, or max, returns a scalar $P$. Reducing a jagged $[0, n) \to [0, \infty) \to P$ array, such as computing the sum of each subarray, retuns $[0, n) \to P$, decreasing its jaggedness by one.
 
 When {\bf masking} a jagged array, we may want to remove subarrays (representing events) or we may want to remove subarray elements (representing particles). We can make that distinction by contrasting a boolean mask $[0, n) \to \mbox{\small\tt bool}$ with a jagged boolean mask $[0, n) \to [0, \infty) \to \mbox{\small\tt bool}$. In keeping with the rules of conventional array programming, a boolean mask would remove subarrays from a jagged array $[0, n) \to [0, \infty) \to P$. Extending these rules, a jagged boolean mask can remove subarray elements if they have the same jagged structure.
 
