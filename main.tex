@@ -116,7 +116,7 @@ Extending the concept of {\bf multidimensional slices} from subintervals of $[0,
 
 Conventional {\bf broadcasting} allows scalar $P$ data to be an operand in elementwise operations with arrays $[0, n) \to P$ by duplicating the one scalar to $n$ array elements. Jagged broadcasting duplicates each element of a flat array $[0, n) \to P$ to the corresponding jagged array elements $[0, n) \to [0, \infty) \to P$. The same applies for any depth of jaggedness: broadcasting increases the jaggedness of operands to match the jaggedness of the most deeply nested array.
 
-{\bf Reducing} a $[0, n) \to P$ array, such as computing its sum, min, or max, returns a scalar $P$. Reducing a jagged $[0, n) \to [0, \infty) \to P$ array, such as computing the sum of each subarray, retuns a $[0, n) \to P$ array, decreasing its jaggedness by one.
+{\bf Reducing} a $[0, n) \to P$ array, such as computing its sum, min, or max, returns a scalar $P$. Reducing a jagged $[0, n) \to [0, \infty) \to P$ array, such as computing the sum of each subarray, retuns $[0, n) \to P$, decreasing its jaggedness by one.
 
 When {\bf masking} a jagged array, we may want to remove subarrays (representing events) or we may want to remove subarray elements (representing particles). We can make that distinction by contrasting a boolean mask $[0, n) \to \mbox{\small\tt bool}$ with a jagged boolean mask $[0, n) \to [0, \infty) \to \mbox{\small\tt bool}$. In keeping with the rules of conventional array programming, a boolean mask would remove subarrays from a jagged array $[0, n) \to [0, \infty) \to P$. Extending these rules, a jagged boolean mask can remove subarray elements if they have the same jagged structure.
 
@@ -137,7 +137,7 @@ In our extension of array programming, tables and jaggedness can be composed. Th
 \mbox{\small\tt "two"} & \to & P_3 \\
 \mbox{\small\tt "three"} & \to & P_4\mbox{.} \end{array}\right. \]
 
-Rectangular tables can be sliced by row (integer index) or column (string index). So can jagged tables. A table described by $[0, n) \to [0, \infty) \to \{\mbox{\small\tt "one"} \to T_1\mbox{, }\mbox{\small\tt "two"} \to T_2\}$ sliced by a string index {\small\tt "one"} returns a jagged array $[0, n) \to [0, \infty) \to T_1$. In general, this means that integer indexes commute with string indexes, though integer indexes do not {\bf commute} with other integer indexes, nor do string indexes commute with other strings.
+Rectangular tables can be sliced by row (integer index) or column (string index). So can jagged tables. A table described by $[0, n) \to [0, \infty) \to \{\mbox{\small\tt "one"} \to T_1\mbox{, }\mbox{\small\tt "two"} \to T_2\}$ sliced by a string index {\small\tt "one"} returns a jagged array $[0, n) \to [0, \infty) \to T_1$. In general, this means that integer indexes {\bf commute} with string indexes, though integer indexes do not commute with other integer indexes, nor do string indexes commute with other strings.
 
 Primitives, variable-sized lists, and tables of records would be sufficient for most HEP cases, but sometimes polymorphic types and cross-references (pointers) are needed. Polymorphic types can be included with unions $T = T_1\ |\ T_2$ (elements may be type $T_1$ or type $T_2$) and optional types $?T$ (elements may be type $T$ or null). Since the possibilities of a polymorphic type are enumerated, operations must be legal on all enumerated possibilities, and operations on an optional type are only applied to non-null elements.
 
