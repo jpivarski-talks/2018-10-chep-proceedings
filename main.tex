@@ -261,7 +261,7 @@ As a rough indicator of performance trade-offs, we studied one operation in a va
 \end{minipage}}}\end{minipage}
 \end{table}
 
-If this style of programming is adopted for HEP analysis, it presents an opportunity to optimize the array primitives independently of the analysis code. Array-centric data structures are ripe for vectorization, but some of the na\"ive algorithms, such as jagged reduction, have loop-carried dependencies that prevent vectorization. One of us (Nandi) developed vectorized algorithms for jagged operations~\cite{jaydeep}, such as this CUDA implementation of jagged reduction:
+If this style of programming is adopted for HEP analysis, it presents an opportunity to optimize the array primitives independently of the analysis code. Array-centric data structures are ripe for vectorization, but some of the na\"ive algorithms, such as jagged reduction, have loop-carried dependencies that prevent vectorization. One of us (Nandi) developed vectorized algorithms for jagged operations~\cite{jaydeep}, such as this CUDA implementation of jagged reduction (fully described as a notebook~\cite{performance2}):
 \begin{center}
 \begin{minipage}{0.7\linewidth}
 {\small\begin{minted}{python}
@@ -278,11 +278,11 @@ for (int d = 1;  d < blockSize.x;  d *= 2) {
 \end{center}
 \noindent The rate of this algorithm on a Tesla P100 GPU and vector instructions on a Xeon Silver 4110 CPU are shown in Figure~\ref{rates_logy} as a function of the Poisson average number of items per group. For comparison, two sequential algorithms (nested for loops with all compiler optimizations, same CPU) are overlaid.
 
-\begin{figure}
-\includegraphics[width=0.5\linewidth]{sum_rates_logy.pdf}\includegraphics[width=0.5\linewidth]{max_rates_logy.pdf}
+\begin{figure}[bh]
+\includegraphics[width=0.48\linewidth]{sum_rates_logy.pdf}\hfill \includegraphics[width=0.48\linewidth]{max_rates_logy.pdf}
 
 \caption{Jagged reduction \mintinline{python}{jaggedarray.sum()} (left) and \mintinline{python}{jaggedarray.max()} (right) for two sequential algorithms (CPU) and our vectorized algorithm on CPU and GPU. \label{rates_logy}}
-\vspace{-0.35 cm}
+\vspace{-0.5 cm}
 \end{figure}
 
 \section{Future directions}
@@ -293,7 +293,6 @@ Numpy arrays are the common language of Python's scientific ecosystem. Now that 
 
 This work was supported by the National Science Foundation under grants ACI-1450377 and PHY-1624356.
 
-\vspace{-0.15 cm}
 \begin{thebibliography}{8}
 % Journal Author, Journal \textbf{Volume}, page numbers (year)
 
@@ -317,9 +316,11 @@ This work was supported by the National Science Foundation under grants ACI-1450
 
 \bibitem{uproot} Jim Pivarski et al., ``uproot'' [software], Release 3.2.6, Zenodo, 22 October, 2018. \textcolor{blue}{\url{https://zenodo.org/record/1469102}}
 
-\bibitem{performance} CERNBox folder: \textcolor{blue}{\url{https://cernbox.cern.ch/index.php/s/uhAH75uGCddFlFL}}
+\bibitem{performance} Performance test 1: \textcolor{blue}{\url{https://cernbox.cern.ch/index.php/s/uhAH75uGCddFlFL}}
 
 \bibitem{jaydeep} Jaydeep Nandi, ``Vectorized proof of concepts'' [notebooks] August 2018. \\ \textcolor{blue}{\url{https://gitlab.com/Jayd_1234/GSoC_vectorized_proof_of_concepts}}
+
+\bibitem{performance2} Performance test 2: \textcolor{blue}{\url{https://github.com/jpivarski/jupyter-performance-studies/blob/master/2018-09-10-jagged-reduction.ipynb}}
 
 \bibitem{pandas} Wes McKinney, ``Data Structures for Statistical Computing in Python,'' Proceedings of the 9th Python in Science Conference, 51-56 (2010) (\textcolor{blue}{\href{http://conference.scipy.org/proceedings/scipy2010/mckinney.html}{publisher link}}).
 
