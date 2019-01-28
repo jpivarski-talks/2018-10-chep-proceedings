@@ -4,12 +4,13 @@
 \usepackage{minted}
 \usepackage{tabto}
 \usepackage{mathtools}
+\usepackage{hyperref}
 
 \title{Columnar data processing for HEP analysis}
 \author{Jim Pivarski\inst{1} \and Jaydeep Nandi\inst{2} \and David Lange\inst{1} \and Peter Elmer\inst{1}}
 \date{October 2018}
 
-\abstract{In the last stages of data analysis, physicists are often forced to choose between simplicity and execution speed. High-level languages like Python are known for ease of use but also very slow execution in High Energy Physics (HEP). However, Python is used in speed-critical data analysis in other fields of science and industry. In those fields, most operations are performed on Numpy arrays in an array programming style; this style can be adopted for HEP by introducing variable-sized, nested data structures. We describe how array programming may be extended for HEP use-cases and an implementation known as awkward-array. We also present integration with ROOT, Apache Arrow, and Parquet, as well as preliminary performance results.}
+\abstract{In the last stages of data analysis, physicists are often forced to choose between simplicity and execution speed. In High Energy Physics (HEP), high-level languages like Python are known for ease of use but also very slow execution. However, Python is used in speed-critical data analysis in other fields of science and industry. In those fields, most operations are performed on Numpy arrays in an array programming style; this style can be adopted for HEP by introducing variable-sized, nested data structures. We describe how array programming may be extended for HEP use-cases and an implementation known as awkward-array. We also present integration with ROOT, Apache Arrow, and Parquet, as well as preliminary performance results.}
 
 %% \abstract{In the last stages of data analysis, only order-of-magnitude computing speedups translate into increased human productivity, and only if they're not difficult to set up. Producing a plot in a second instead of an hour is life-changing, but not if it takes two hours to write the analysis code. Fortunately, HPC-inspired techniques can result in such large speedups, but unfortunately, they can be difficult to use in a HEP setting.
 
@@ -18,13 +19,13 @@
 %% We will describe several new software tools to make it easier to compute analysis functions with columnar arrays in HEP: array-at-a-time I/O in ROOT ("BulkIO") and Python/Numpy ("uproot"), compiling object-oriented analysis code into columnar operations ("oamap" for "object-array mapping"), and storage solutions with columnar granularity. We will show performance plots and usage examples.}
 
 \xdefinecolor{dianablue}{rgb}{0.18,0.24,0.31}
-\xdefinecolor{darkblue}{rgb}{0.1,0.1,0.7}
-\xdefinecolor{darkgreen}{rgb}{0,0.5,0}
+\xdefinecolor{darkblue}{rgb}{0,0,1}
 \xdefinecolor{darkgrey}{rgb}{0.35,0.35,0.35}
-\xdefinecolor{darkorange}{rgb}{0.8,0.5,0}
+\xdefinecolor{darkorange}{rgb}{1.0,0.5,0}
 \xdefinecolor{darkred}{rgb}{0.7,0,0}
-\definecolor{darkgreen}{rgb}{0,0.6,0}
+\definecolor{darkgreen}{rgb}{0,0.5,0}
 \definecolor{mauve}{rgb}{0.58,0,0.82}
+\definecolor{lightviolet}{rgb}{0.65,0,1}
 
 \definecolor{mycolor}{HTML}{FF6600}
 \definecolor{cppcolor}{HTML}{00AAD4}
@@ -39,9 +40,9 @@
 
 \section{Introduction}
 
-The field of High Energy Physics (HEP) has always dealt with big data, large enough datasets that finite memory and processing speed cannot be ignored. Traditionally, physicists have relied on compiled languages like Fortran and C++ to analyze large datasets in batch, but this limits interactive exploration. Today, data analysts in other fields, including industry, are developing tools to analyze large datasets in high-level languages, but these tools treat data as rectangular tables and flat arrays. HEP analysis requires {\it nested} data--- arbitrarily many tracks within jets or variable-sized collections of particle candidates--- which do not fit into rectangular data without padding and truncation.
+The field of High Energy Physics (HEP) has always dealt with big data, large enough datasets that finite memory and processing speed cannot be ignored. Traditionally, physicists have relied on compiled languages like Fortran and C++ to analyze large datasets in batch, but this limits interactive exploration. Today, data analysts in other academic fields and industry are developing tools to analyze large datasets in high-level languages, but these tools treat data as rectangular tables and flat arrays. HEP analysis requires {\it nested} data--- arbitrarily many tracks within jets or variable-sized collections of particle candidates--- which do not fit into rectangular data without padding and truncation.
 
-This paper describes how the concepts of array programming may be extended to more complex data structures. It also introduces awkward-array~\cite{awkward}, an implementation of these ``awkward'' data structures as arrays, which is written in pure Python (depending only on Numpy) for portability.
+This paper describes how the concepts of array programming may be extended to more complex data structures. It also introduces awkward-array~\cite{awkward}, an implementation of these ``awkward'' data structures as arrays, which is written in pure Python (depending only on Numpy~\cite{numpy}) for portability.
 
 \section{Array programming and its extension to nested data}
 
@@ -107,17 +108,17 @@ Array programming usually includes the following elements (expressed in Numpy sy
 
 \section{High-level types and array programming interface}
 
-Arrays introduce a degree of static typing to dynamically typed programming languages, in the sense that all elements of an array have the same type and an operation may be performed across all elements without expensive type-checks. Conventional array processing environments like Numpy only support primitive types: numbers, booleans, and other fixed-size values (including records of fixed-size values). Fixed-size subarrays are presented as an array's multidimensional ``shape,'' and may be considered part of the type. Introducing nested data requires additional data types.
+Arrays introduce a degree of static typing to dynamically typed programming languages, in the sense that all elements of an array have the same type and an operation may be performed for all elements with the expensive type-check performed only once per array, rather than once per element. Conventional array processing environments like Numpy only support primitive types: numbers, booleans, and other fixed-size values (including records of fixed-size values). Fixed-size subarrays are presented as an array's multidimensional ``shape,'' and may be considered part of the type. Introducing nested data requires additional data types.
 
-The type of a flat array with length $n$ could be denoted $[0, n) \to P$, as a function signature that takes integers between $0$ (inclusive) and $n$ (exclusive) to a primitive type $P$. An array of length $n$ with variable-sized subarrays would be $[0, n) \to [0, \infty) \to P$, as any non-negative integer could be in the second domain (though some are not valid for a particular dataset). This is known as a jagged, or ragged, array. Jagged arrays may be nested: $[0, n) \to [0, \infty) \to [0, \infty) \to P$.
+The type of a flat array with length $n$ can be denoted $[0, n) \to P$, as a function signature that takes integers between $0$ (inclusive) and $n$ (exclusive) to a primitive type $P$. An array of length $n$ with variable-sized subarrays would be $[0, n) \to [0, \infty) \to P$, as any non-negative integer can be in the second domain. This is known as a jagged, or ragged, array. Jagged arrays may be nested: $[0, n) \to [0, \infty) \to [0, \infty) \to P$.
 
-The extension of multidimensional slices to $[0, \infty)$ should be clear--- instead of selecting from $0$ to $n$ slots, slices select from $0$ to a number of slots that only becomes known while iterating through the array. (This type-safety is weaker than it is for flat arrays, whose shape is fully known in constant time.) Elementwise operations are only possible if all subarrays in each argument have the same lengths, and they preserve that structure in the output.
+Extending the concept of multidimensional slices from subintervals of $[0, n)$ to subintervals of $[0, \infty)$ is straightforward, though the result is itself jagged because some subarrays may be smaller than the slice and are clipped. Elementwise operations also have a straightforward extension to jagged arrays, but not only must the total array lengths match among operands, their subarray lengths must match as well.
 
-Conventional broadcasting allows scalar $P$ data to be included in elementwise operations with arrays $[0, n) \to P$ by duplicating the one scalar to $n$ array elements. Jagged broadcasting duplicates each element of a flat array $[0, n) \to P$ to the corresponding jagged array elements $[0, n) \to [0, \infty) \to P$, increasing the depth of jaggedness by one. The same applies for any depth of jaggedness to one level deeper.
+Conventional broadcasting allows scalar $P$ data to be an operand in elementwise operations with arrays $[0, n) \to P$ by duplicating the one scalar to $n$ array elements. Jagged broadcasting duplicates each element of a flat array $[0, n) \to P$ to the corresponding jagged array elements $[0, n) \to [0, \infty) \to P$. The same applies for any depth of jaggedness: broadcasting increases the jaggedness of operands to match the jaggedness of the most deeply nested array.
 
-When filtering a jagged array with a mask, we may want to remove subarrays (representing events) or we may want to remove subarray elements (representing particles). We can make that distinction by contrasting a boolean mask $[0, n) \to \mbox{\small\tt bool}$ with a jagged boolean mask $[0, n) \to [0, \infty) \to \mbox{\small\tt bool}$. In keeping with the rules of conventional array programming, a boolean mask would remove subarrays from a jagged array $[0, n) \to [0, \infty) \to P$. Extending these rules, a jagged boolean mask could remove subarray elements if they have the same jagged structure.
+When filtering a jagged array with a mask, we may want to remove subarrays (representing events) or we may want to remove subarray elements (representing particles). We can make that distinction by contrasting a boolean mask $[0, n) \to \mbox{\small\tt bool}$ with a jagged boolean mask $[0, n) \to [0, \infty) \to \mbox{\small\tt bool}$. In keeping with the rules of conventional array programming, a boolean mask would remove subarrays from a jagged array $[0, n) \to [0, \infty) \to P$. Extending these rules, a jagged boolean mask can remove subarray elements if they have the same jagged structure.
 
-Similarly, an integer array $[0, m) \to \mbox{\small\tt int}$ selects $m$ subarrays from a jagged array by the conventional rules, but a jagged integer array $[0, n) \to [0, \infty) \to \mbox{\small\tt int}$ could select subarray elements. Since this ``gather'' feature is often used with functions like {\it argmax}, {\it argmin}, and {\it argsort} to identify important indexes in one array and select elements at those indexes from another array, the jagged {\it argmax} and {\it argmin} should return jagged arrays with zero or one element in each subarray--- the max or min if any elements exist.
+Similarly, an integer array $[0, m) \to \mbox{\small\tt int}$ selects $m$ subarrays from a jagged array by the conventional rules, but a jagged integer array $[0, n) \to [0, \infty) \to \mbox{\small\tt int}$ can select subarray elements. Since this ``gather'' feature is often used with functions like {\it argmax}, {\it argmin}, and {\it argsort} to identify important indexes in one array and select elements at those indexes from another array, the jagged {\it argmax} and {\it argmin} should return jagged arrays with zero or one-element subarrays--- the max or min if any elements exist.
 
 Tables with named, differently typed columns can be included in this type system as a mapping from names to types. For instance, a table with three columns is $[0, n) \to \{\mbox{\small\tt "one"} \to P_1\mbox{, }\mbox{\small\tt "two"} \to P_2\mbox{, }\mbox{\small\tt "three"} \to P_3\}$.
 
@@ -126,7 +127,7 @@ Tables with named, differently typed columns can be included in this type system
 %% \mbox{\small\tt "two"} & \to & P_2 \\
 %% \mbox{\small\tt "three"} & \to & P_3\mbox{.} \end{array}\right. \]
 
-In our extension of array programming, tables and jaggedness can be composed. This is useful in HEP for describing event records that contain variable-sized lists of particles, each with a different multiplicity, each containing attributes of various types. In some cases, it's useful for the particle attributes to be variable-sized lists as well. Type descriptions may then be arbitrary trees like the following:
+In our extension of array programming, tables and jaggedness can be composed. This is useful in HEP for describing event records that contain variable-sized lists of particles, each with a different multiplicity, each containing attributes of various types. In some cases, it's useful for the particle attributes to be variable-sized lists as well. Type descriptions may then be arbitrary trees, like the following:
 
 \vspace{-\baselineskip}
 \[ [0, n) \to [0, \infty) \to \left\{\begin{array}{l c l}
@@ -160,7 +161,7 @@ Content:           \tabto{4 cm}{\ttfamily\verb|[ |\textcolor{darkblue}{0, 1, 2}\
 Offsets:           \tabto{4 cm}{\ttfamily\verb|[|\textcolor{red}{0,}\verb|         |\textcolor{red}{3,}\verb|  |\textcolor{red}{3,}\verb|      |\textcolor{red}{5,}\verb|            |\textcolor{red}{10, 10}\verb|]|}
 
 \vspace{0.05 cm}
-Parents:           \tabto{4 cm}{\ttfamily\verb|[ |\textcolor{darkgreen}{0, 0, 0}\verb|        |\textcolor{purple}{2, 2,}\verb|   |\textcolor{darkorange}{3, 3, 3, 3}\verb|]|}
+Parents:           \tabto{4 cm}{\ttfamily\verb|[ |\textcolor{darkgreen}{0, 0, 0}\verb|        |\textcolor{lightviolet}{2, 2,}\verb|   |\textcolor{darkorange}{3, 3, 3, 3}\verb|]|}
 
 \vspace{\baselineskip}
 The offsets array may be constructed as the content index after every opening bracket (the ``starts'' array) appended by the total length, or it may be constructed as the content index after every closing bracket (the ``stops'' array) prepended by zero. It is useful for descending from outer levels to inner levels of structure.
@@ -171,7 +172,7 @@ The awkward-array library has a {\tt\small JaggedArray} implementation that allo
 
 Tables of records are implemented as a {\tt\small Table} class that maps column names to arrays. This is like Numpy's ``record arrays,'' except that a Numpy record array must be a contiguous array of structs, while awkward-array's {\tt\small Table} may be non-contiguous or a struct of arrays. {\tt\small JaggedArray} and {\tt\small Table} interact to let integer and string valued indexes commute, which hides the arrays-of-structs/structs-of-arrays distinction.
 
-{\tt\small UnionArray} and {\tt\small MaskedArray} implement polymorphism and optional types. Numpy has a masked array type, but {\tt\small MaskedArray} shares conventions with the rest of awkward-array's suite and additionally has a {\tt\small BitMaskedArray} variant for compatibility with Apache Arrow (next section).
+{\tt\small UnionArray} and {\tt\small MaskedArray} implement polymorphism and optional types. Numpy has a masked array type, but {\tt\small MaskedArray} shares conventions with the rest of awkward-array's suite and additionally has a {\tt\small BitMaskedArray} variant for compatibility with Apache Arrow~\cite{arrow} (next section).
 
 In HEP applications, it is useful to have datasets representing arrays of objects, such as $[0, n) \to \mbox{\tt\small LorentzVector}$, which returns \mbox{\tt\small LorentzVector} objects when given an index. Numpy has an ``object array'' type, which stores pointers to Python objects in memory, but awkward-array's {\tt\small ObjectArray} constructs a Python object when given an index. This allows us to represent such data with 12$\times$ less memory, as we will see in the section on performance below.
 
@@ -191,7 +192,7 @@ Any of these can be cross-referenced in Python, as the implementation is careful
 
 \section{ROOT/Arrow/Parquet compatibility and persistence}
 
-The awkward-array classes were not designed to be a new format, but to give existing formats new behaviors, so that they can be used in an array programming style. As such, they are configurable to fit a variety of representations. For instance, there are six ways to configure {\tt\small MaskedArrays}: the mask may be bytes, bits, ``true means masked'' or ``false means masked,'' and if bits, the order may be least significant bit first or most significant bit first. Numpy's masked arrays use bytes in which ``true means masked'' and Arrow's arrays (all of which are masked) use bits in which ``false means masked'' in least significant bit order (opposite of Numpy's {\it packbits}).
+The awkward-array classes were not designed to be a new format, but to give existing formats new behaviors, so that they can be used in an array programming style. As such, they are configurable to fit a variety of representations. %% For instance, there are six ways to configure {\tt\small MaskedArrays}: the mask may be bytes, bits, ``true means masked'' or ``false means masked,'' and if bits, the order may be least significant bit first or most significant bit first. Numpy's masked arrays use bytes in which ``true means masked'' and Arrow's arrays (all of which are masked) use bits in which ``false means masked'' in least significant bit order (opposite of Numpy's {\it packbits}).
 
 The scope of awkward-array was chosen such that ROOT, Apache Arrow, and Parquet data may be viewed through configurations of the awkward classes. Numpy natively supports the full range of numeric types, big and little endian byte orders, and fixed-size subarrays, which awkward-array inherits. {\tt\small ByteJaggedArray} can use ROOT's basket format directly, which specifies the positions of variable-sized entries by byte index. All the baskets in a branch may be viewed as a {\tt\small ChunkedArray}, while lazy loading and decompression are provided by {\tt\small VirtualArray}. A ROOT TTree is a (possibly jagged) {\tt\small Table}, and pointer references can be emulated with {\tt\small IndexedArray}. Arbitrary C++ types are encoded in ROOT's streamers, which uproot~\cite{uproot} translates to Python classes. Data with this general type are then presented as {\tt\small ObjectArrays} with {\tt\small TLorentzVector} being the primary example.
 
@@ -199,7 +200,7 @@ Apache Arrow has a simpler data model consisting only of primitives, arbitrary-l
 
 Although most data would be drawn from a standard format like ROOT (in HEP) or Parquet (beyond HEP), it is often necessary to save derived quantities after some analysis. Derived quantities might use features not available in the source format. Therefore, awkward-array has its own persistence format: a JSON string describing how awkward-array classes are nested with cross-references and a binary blob for each array. These may be placed in any container of named binary blobs, such as a ZIP file, an HDF5 file, or a distributed object store. By default, {\tt\small VirtualArrays} representing data from ROOT or Parquet are saved as instructions for reading from the original file, rather than the data themselves. Thus, an analyst can read ROOT or Parquet data, add or replace fields in its {\tt\small Tables}, and save the ensemble in a file representing only the changes, which can be considerably smaller than the original data.
 
-The JSON description of the awkward-array structure is formatted like an executable LISP expression, providing a high degree of forward compatibility: later versions may construct new expressions, but they are executable in older versions of the awkward-array library. The deserialization process checks function names against a whitelist of allowed functions for security. (A user might need to manually expand the whitelist to get forward compatibility.) Python values are expressed in JSON for cross-language compatibility as much as possible, though pickle is a fallback.
+%% The JSON description of the awkward-array structure is formatted like an executable LISP expression, providing a high degree of forward compatibility: later versions may construct new expressions, but they are executable in older versions of the awkward-array library. The deserialization process checks function names against a whitelist of allowed functions for security. Python values are expressed in JSON for cross-language compatibility as much as possible, though pickle is a fallback.
 
 \section{Performance measurements}
 
@@ -209,7 +210,7 @@ As a rough indicator of performance trade-offs, we studied one operation in a va
 \begin{center}
 \mintinline{python}{pz = pt * numpy.sinh(eta)}
 \end{center}
-\noindent where \mintinline{python}{pt} and \mintinline{python}{eta} are jagged arrays with the same structure: 552,056 muons in 701,716 events. Table~\ref{quantify} shows the memory used to store these data before calculation and the time to compute in awkward-array, ROOT, pure Python, and instrumented Python like awkward-array and PyROOT in which Python code is iterating over all elements of the arrays. The differences span orders of magnitude.
+\noindent where \mintinline{python}{pt} and \mintinline{python}{eta} are jagged arrays with the same structure: 552,056 muons in 701,716 events. These tests were performed on CERN's SWAN service and all files to reproduce the study are shared publicly on CERNBox~\cite{performance}. Table~\ref{quantify} shows the memory used to store these data before calculation and the time to compute in awkward-array, ROOT, pure Python, and instrumented Python like awkward-array and PyROOT in which Python code is iterating over all elements of the arrays. The differences span orders of magnitude.
 
 \begin{table}
 \caption{Horizontal study of \mintinline{python}{pz = pt * numpy.sinh(eta)} in many types of systems. \label{quantify}}
@@ -260,7 +261,7 @@ As a rough indicator of performance trade-offs, we studied one operation in a va
 
 If this style of programming is adopted for HEP analysis, it presents an opportunity to optimize the array primitives independently of the analysis code. Array-centric data structures are ripe for vectorization, but some of the na\"ive algorithms, such as jagged reduction, have loop-carried dependencies that prevent vectorization. One of us (Nandi) developed vectorized algorithms for jagged operations~\cite{jaydeep}, such as this CUDA implementation of jagged reduction:
 \begin{center}
-\begin{minipage}{0.6\linewidth}
+\begin{minipage}{0.7\linewidth}
 {\small\begin{minted}{python}
 int i = threadIdx.x;
 for (int d = 1;  d < blockSize.x;  d *= 2) {
@@ -275,15 +276,16 @@ for (int d = 1;  d < blockSize.x;  d *= 2) {
 \end{center}
 \noindent The rate of this algorithm on a Tesla P100 GPU and vector instructions on a Xeon Silver 4110 CPU are shown in Figure~\ref{rates_logy} as a function of the Poisson average number of items per group. For comparison, two sequential algorithms (nested for loops with all compiler optimizations, same CPU) are overlaid.
 
-\begin{figure}
+\begin{figure}[b]
 \includegraphics[width=0.5\linewidth]{sum_rates_logy.pdf}\includegraphics[width=0.5\linewidth]{max_rates_logy.pdf}
 
 \caption{Jagged reduction \mintinline{python}{jaggedarray.sum()} (left) and \mintinline{python}{jaggedarray.max()} (right) for two sequential algorithms (CPU) and our vectorized algorithm on CPU and GPU. \label{rates_logy}}
+\vspace{-0.25 cm}
 \end{figure}
 
 \section{Future directions}
 
-Numpy arrays are the common language of Python's scientific ecosystem. Now that structures necessary for HEP have been cast as arrays, they can be more easily integrated into this ecosystem. As a next step, awkward-arrays will be added as a Pandas extension type, so that columns in a Pandas DataFrame may be structured. Following that, {\tt\small ChunkedArrays} of {\tt\small VirtualArrays} will be wrapped as Dask delayed arrays so that calculations can be distributed without moving data. Problems that require conventional loops and conditionals can be optimized by wrapping awkward-arrays as Numba extensions. Finally, awkward-array's exclusive dependence on Numpy should make it transparently portable to GPUs with CuPy, but that remains to be tested.
+Numpy arrays are the common language of Python's scientific ecosystem. Now that structures necessary for HEP have been cast as arrays, they can be more easily integrated into this ecosystem. As a next step, awkward-arrays will be added as a Pandas~\cite{pandas} extension type, so that columns in a Pandas DataFrame may be structured. Following that, {\tt\small ChunkedArrays} of {\tt\small VirtualArrays} will be wrapped as Dask delayed arrays so that calculations can be distributed without moving data. Problems that require conventional loops and conditionals can be optimized by wrapping awkward-arrays as Numba extensions. Finally, awkward-array's exclusive dependence on Numpy should make it transparently portable to GPUs with CuPy~\cite{cupy}, but that remains to be tested.
 
 \section{Acknowledgements}
 
@@ -294,9 +296,13 @@ This work was supported by the National Science Foundation under grants ACI-1450
 
 \bibitem{awkward} Jim Pivarski, ``awkward-array'' [software], Release 0.4.1, Zenodo, 26 October, 2018. \textcolor{blue}{\url{https://zenodo.org/record/1472437}}
 
-\bibitem{apl} Kenneth E.\ Iverson, \textit{A programming language} (John Wiley \& Sons, Inc., New York, 1962)
+\bibitem{numpy} Travis E, Oliphant, ``A guide to NumPy,'' USA: Trelgol Publishing, (2006).
+
+\bibitem{apl} Kenneth E.\ Iverson, \textit{A programming language} (John Wiley \& Sons, Inc., New York, 1962).
 
 \bibitem{nep13} Blake Griffith, ``NEP 13: a mechanism for overriding ufuncs'' [Numpy Enhancement Proposal (accepted)], 10 July 2017. \textcolor{blue}{\url{https://www.numpy.org/neps/nep-0013-ufunc-overrides.html}}
+
+\bibitem{arrow} Arrow Development Team, ``Apache Arrow'' [website]. \textcolor{blue}{\url{https://arrow.apache.org}}
 
 \bibitem{root-file} Rene Brun and Fons Rademakers, ``The ROOT Object I/O System'' [specification], 26 August, 1996. \textcolor{blue}{\url{https://root.cern.ch/root/InputOutput.html}}
 
@@ -308,7 +314,13 @@ This work was supported by the National Science Foundation under grants ACI-1450
 
 \bibitem{uproot} Jim Pivarski et al., ``uproot'' [software], Release 3.2.6, Zenodo, 22 October, 2018. \textcolor{blue}{\url{https://zenodo.org/record/1469102}}
 
-\bibitem{jaydeep} Jaydeep Nandi, ``Vectorized proof of concepts'' [notebooks] August 2018. \textcolor{blue}{\url{https://gitlab.com/Jayd_1234/GSoC_vectorized_proof_of_concepts}}
+\bibitem{performance} CERNBox folder: \textcolor{blue}{\url{https://cernbox.cern.ch/index.php/s/uhAH75uGCddFlFL}}
+
+\bibitem{jaydeep} Jaydeep Nandi, ``Vectorized proof of concepts'' [notebooks] August 2018. \\ \textcolor{blue}{\url{https://gitlab.com/Jayd_1234/GSoC_vectorized_proof_of_concepts}}
+
+\bibitem{pandas} Wes McKinney, ``Data Structures for Statistical Computing in Python,'' Proceedings of the 9th Python in Science Conference, 51-56 (2010) (\textcolor{blue}{\href{http://conference.scipy.org/proceedings/scipy2010/mckinney.html}{publisher link}}).
+
+\bibitem{cupy} Ryosuke Okuta, Yuya Unno, Daisuke Nishino, Shohei Hido and Crissman Loomis, ``CuPy: A NumPy-Compatible Library for NVIDIA GPU Calculations.'' Proceedings of Workshop on Machine Learning Systems (LearningSys), 31$^{\mbox{\scriptsize st}}$ Annual Conference on Neural Information Processing Systems (NIPS), (2017) (\textcolor{blue}{\href{http://learningsys.org/nips17/assets/papers/paper_16.pdf}{publisher link}}).
 
 \end{thebibliography}
 
